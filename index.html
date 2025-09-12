@@ -61,7 +61,7 @@
         videoEl.load();
         videoEl.play();
 
-        // Immediately preload the next random video
+        // Immediately preload the next random video for the following loop
         preloadNext();
       }
 
@@ -71,17 +71,9 @@
         playNext();
       });
 
-      // On video end, play a new random video
+      // On video end, manually play a new random video
       videoEl.addEventListener("ended", () => {
         if (targetEl.components["mindar-image-target"].data.found) {
-          playNext();
+          playNext(); // ensures new random video each cycle
         }
       });
-
-      // Pause when target is lost
-      targetEl.addEventListener("targetLost", () => {
-        videoEl.pause();
-      });
-    </script>
-  </body>
-</html>
