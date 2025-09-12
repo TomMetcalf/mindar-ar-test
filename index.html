@@ -17,7 +17,6 @@
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- Target 0 -->
       <a-entity id="target0" mindar-image-target="targetIndex: 0">
         <a-video
           id="videoTarget0"
@@ -34,13 +33,13 @@
     <script>
       // Clip start/end times
       const clipTimes = [
-        [0, 5],           // Clip 1
+        [0, 5],           // Clip 1 (start)
         [5, 8],           // Clip 2
         [8, 12],          // Clip 3
         [12, 15],         // Clip 4
         [15, 19.333333],  // Clip 5
         [19.333333, 22.333333], // Clip 6
-        [22.333333, 23.333333]  // Clip 7
+        [22.333333, 23.333333]  // Clip 7 (end)
       ];
 
       const videoEl = document.getElementById("videoTarget0");
@@ -52,26 +51,26 @@
       let middleIndexes = [];
       let lastMiddleSequence = [];
 
-      // Pick exactly 3 random middle clips (clips 2–6)
+      // Pick 3 random clips from clips 2–6
       function pickMiddleClips() {
-        const middlePool = [1, 2, 3, 4, 5];
+        const middlePool = [1,2,3,4,5]; // indexes for clips 2–6
 
-        // Shuffle
+        // Shuffle the pool
         const shuffled = middlePool.sort(() => Math.random() - 0.5);
 
-        // Take only 3 clips
-        middleIndexes = shuffled.slice(0, 3);
+        // Take first 3 clips
+        let newSequence = shuffled.slice(0, 3);
 
         // Avoid repeating previous sequence
-        if (arraysEqual(middleIndexes, lastMiddleSequence)) {
-          [middleIndexes[0], middleIndexes[1]] = [middleIndexes[1], middleIndexes[0]];
+        if (arraysEqual(newSequence, lastMiddleSequence)) {
+          [newSequence[0], newSequence[1]] = [newSequence[1], newSequence[0]];
         }
 
-        lastMiddleSequence = [...middleIndexes];
+        middleIndexes = newSequence;
+        lastMiddleSequence = [...newSequence];
         middlePlayedCount = 0; // reset counter
       }
 
-      // Helper to compare arrays
       function arraysEqual(a, b) {
         if (!a || !b || a.length !== b.length) return false;
         for (let i = 0; i < a.length; i++) {
@@ -93,11 +92,12 @@
           playClip(0); // Clip 1
           middlePlayedCount++;
         } else if (middlePlayedCount <= middleIndexes.length) {
-          playClip(middleIndexes[middlePlayedCount - 1]); // Play one of 3 middle clips
+          // Only play the 3 randomly selected middle clips
+          playClip(middleIndexes[middlePlayedCount - 1]);
           middlePlayedCount++;
         } else {
           playClip(6); // Clip 7
-          pickMiddleClips(); // reshuffle middle clips for next loop
+          pickMiddleClips(); // reshuffle middle clips
         }
       }
 
