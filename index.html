@@ -52,17 +52,25 @@
       let middleIndexes = [];
       let lastMiddleSequence = [];
 
-      // Pick 3 random middle clips (indexes 1–5) without repeating previous sequence
+      // Pick 3 random middle clips (clips 2–6) without repeating the previous sequence
       function pickMiddleClips() {
         const middlePool = [1, 2, 3, 4, 5];
-        let newSequence;
-        do {
-          newSequence = [];
-          while (newSequence.length < 3) {
-            const idx = middlePool[Math.floor(Math.random() * middlePool.length)];
-            if (!newSequence.includes(idx)) newSequence.push(idx);
-          }
-        } while (arraysEqual(newSequence, lastMiddleSequence));
+
+        // Shuffle the array
+        const shuffled = middlePool
+          .map(value => ({ value, sort: Math.random() }))
+          .sort((a, b) => a.sort - b.sort)
+          .map(({ value }) => value);
+
+        // Take the first 3 clips from the shuffled array
+        let newSequence = shuffled.slice(0, 3);
+
+        // Avoid repeating the exact same sequence as last loop
+        if (arraysEqual(newSequence, lastMiddleSequence)) {
+          // Swap two elements if it's the same as last time
+          [newSequence[0], newSequence[1]] = [newSequence[1], newSequence[0]];
+        }
+
         lastMiddleSequence = [...newSequence];
         middleIndexes = newSequence;
       }
