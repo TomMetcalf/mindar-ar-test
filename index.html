@@ -67,6 +67,7 @@
         position="0 0 0"
         look-at="[camera]"
         material="shader: flat; src: #videoA"
+        visible="false"
       ></a-plane>
     </a-entity>
   </a-scene>
@@ -123,7 +124,6 @@
     startBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
-      // monitorVideo will start after first targetFound
     });
 
     audioToggleBtn.addEventListener("click", async () => {
@@ -144,6 +144,7 @@
 
     targetEl.addEventListener("targetFound", async () => {
       isActive = true;
+      videoPlane.setAttribute("visible", true); // show video plane
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
 
       if (!audioButtonShown) {
@@ -151,7 +152,6 @@
         audioButtonShown = true;
       }
 
-      // Preload videos and reset
       preloadVideo(videoA);
       preloadVideo(videoB);
       activeVideo.currentTime = 0;
@@ -173,6 +173,7 @@
 
     targetEl.addEventListener("targetLost", () => {
       isActive = false;
+      videoPlane.setAttribute("visible", false); // hide video plane
       document.querySelector("a-scene").object3D.background = null;
 
       activeVideo.pause();
