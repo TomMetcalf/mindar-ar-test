@@ -18,16 +18,27 @@
       device-orientation-permission-ui="enabled: false"
       framerate="12"
       look-at="[camera]"
+      background="color: #ffffff"
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <!-- Target + smoothed container -->
       <a-entity id="target0" mindar-image-target="targetIndex: 0">
+
+        <!-- White background plane slightly behind the video -->
+        <a-plane
+          width="1.2"
+          height="1.2"
+          position="0 0 -0.01"
+          color="#ffffff"
+        ></a-plane>
+
+        <!-- Smoothed container for video -->
         <a-entity id="smoothedContainer">
           <a-plane
             id="videoPlane"
-            width="1"
-            height="1"
+            width="1.2"
+            height="1.2"
             position="0 0 0"
             look-at="[camera]"
             material="shader: flat; src: #videoA"
@@ -49,7 +60,6 @@
       let nextVideo = videoB;
       let isActive = false;
 
-      // Pick a random video index different from the last
       function pickRandomIndex() {
         let idx;
         do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
@@ -57,7 +67,6 @@
         return idx;
       }
 
-      // Preload a video into the hidden element
       function preloadVideo(videoEl) {
         const idx = pickRandomIndex();
         videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
@@ -65,24 +74,22 @@
         videoEl.load();
       }
 
-      // Swap the plane to the next preloaded video with optional horizontal flip
       function swapVideo() {
-        // Randomly flip horizontally (50% chance)
+        // Random horizontal flip
         const flip = Math.random() < 0.5;
         videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
 
-        // Set plane material to next preloaded video
+        // Set material to next preloaded video
         videoPlane.setAttribute("material", "src", nextVideo);
         nextVideo.play();
 
         // Swap references
         [activeVideo, nextVideo] = [nextVideo, activeVideo];
 
-        // Preload the next video in background
+        // Preload next video
         preloadVideo(nextVideo);
       }
 
-      // Monitor current video time to trigger swap
       function monitorVideo() {
         if (
           isActive &&
@@ -94,19 +101,16 @@
         requestAnimationFrame(monitorVideo);
       }
 
-      // Smooth the container's position and rotation
+      // Smooth container to reduce wobble
       const lastPosition = new THREE.Vector3();
       const lastQuaternion = new THREE.Quaternion();
 
       function smoothUpdate() {
         if (isActive) {
           const targetObj = targetEl.object3D;
-
-          // Position lerp
-          lastPosition.lerp(targetObj.position, 0.2); // adjust 0.2 for more/less smoothing
+          lastPosition.lerp(targetObj.position, 0.2);
           smoothedContainer.object3D.position.copy(lastPosition);
 
-          // Rotation slerp
           lastQuaternion.slerp(targetObj.quaternion, 0.2);
           smoothedContainer.object3D.quaternion.copy(lastQuaternion);
         }
