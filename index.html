@@ -18,41 +18,40 @@
       device-orientation-permission-ui="enabled: false"
       framerate="12"
       look-at="[camera]"
-      background="color: #ffffff"
+      background="color: #000000"
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- Target + smoothed container -->
       <a-entity id="target0" mindar-image-target="targetIndex: 0">
 
-        <!-- White background plane slightly behind the video -->
+        <!-- White background plane hidden initially -->
         <a-plane
+          id="whiteBg"
           width="1.2"
           height="1.2"
           position="0 0 -0.01"
           color="#ffffff"
+          visible="false"
         ></a-plane>
 
-        <!-- Smoothed container for video -->
-        <a-entity id="smoothedContainer">
-          <a-plane
-            id="videoPlane"
-            width="1.2"
-            height="1.2"
-            position="0 0 0"
-            look-at="[camera]"
-            material="shader: flat; src: #videoA"
-          ></a-plane>
-        </a-entity>
+        <!-- Video plane directly attached to target -->
+        <a-plane
+          id="videoPlane"
+          width="1.2"
+          height="1.2"
+          position="0 0 0"
+          look-at="[camera]"
+          material="shader: flat; src: #videoA"
+        ></a-plane>
       </a-entity>
     </a-scene>
 
     <script>
       const videoPlane = document.getElementById("videoPlane");
-      const smoothedContainer = document.getElementById("smoothedContainer");
       const targetEl = document.getElementById("target0");
       const videoA = document.getElementById("videoA");
       const videoB = document.getElementById("videoB");
+      const whiteBg = document.getElementById("whiteBg");
 
       const TOTAL_VIDEOS = 60;
       let lastIndex = -1;
@@ -75,18 +74,14 @@
       }
 
       function swapVideo() {
-        // Random horizontal flip
         const flip = Math.random() < 0.5;
         videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
 
-        // Set material to next preloaded video
         videoPlane.setAttribute("material", "src", nextVideo);
         nextVideo.play();
 
-        // Swap references
         [activeVideo, nextVideo] = [nextVideo, activeVideo];
 
-        // Preload next video
         preloadVideo(nextVideo);
       }
 
@@ -101,33 +96,18 @@
         requestAnimationFrame(monitorVideo);
       }
 
-      // Smooth container to reduce wobble
-      const lastPosition = new THREE.Vector3();
-      const lastQuaternion = new THREE.Quaternion();
-
-      function smoothUpdate() {
-        if (isActive) {
-          const targetObj = targetEl.object3D;
-          lastPosition.lerp(targetObj.position, 0.2);
-          smoothedContainer.object3D.position.copy(lastPosition);
-
-          lastQuaternion.slerp(targetObj.quaternion, 0.2);
-          smoothedContainer.object3D.quaternion.copy(lastQuaternion);
-        }
-        requestAnimationFrame(smoothUpdate);
-      }
-
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
+        whiteBg.setAttribute("visible", "true");
         preloadVideo(videoA);
         preloadVideo(videoB);
         activeVideo.play();
         monitorVideo();
-        smoothUpdate();
       });
 
       targetEl.addEventListener("targetLost", () => {
         isActive = false;
+        whiteBg.setAttribute("visible", "false");
         activeVideo.pause();
         nextVideo.pause();
       });
