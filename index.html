@@ -5,6 +5,7 @@
     <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
+      body { margin: 0; overflow: hidden; }
       #startAR {
         position: fixed;
         top: 40%;
@@ -24,6 +25,8 @@
         font-size: 16px;
         cursor: pointer;
       }
+      /* Hide the AR scene initially */
+      #arScene { display: none; }
     </style>
   </head>
   <body>
@@ -37,9 +40,9 @@
       <source src="./assets/audio/background.mp3" type="audio/mpeg">
     </audio>
 
+    <!-- AR Scene initially hidden -->
     <a-scene
       id="arScene"
-      style="display:none"
       mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
@@ -112,9 +115,10 @@
         requestAnimationFrame(monitorVideo);
       }
 
-      startBtn.addEventListener("click", () => {
+      // Start AR scene when user clicks button
+      startBtn.addEventListener("click", async () => {
         startBtn.style.display = "none";
-        sceneEl.style.display = "block";
+        sceneEl.style.display = "block"; // show AR scene
         monitorVideo();
       });
 
@@ -133,7 +137,6 @@
         }
       });
 
-      // AR target events
       targetEl.addEventListener("targetFound", async () => {
         isActive = true;
         document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
@@ -141,11 +144,11 @@
         preloadVideo(videoB);
         activeVideo.play();
 
-        // Autoplay background audio when target is found
+        // Autoplay audio when target is found
         try {
           await bgAudio.play();
           audioToggleBtn.textContent = "🔇 Pause Audio";
-        } catch {} // fails silently if autoplay is blocked
+        } catch {}
       });
 
       targetEl.addEventListener("targetLost", () => {
