@@ -33,10 +33,14 @@
       const videoEl = document.getElementById("videoTarget0");
       const targetEl = document.getElementById("target0");
 
-      const TOTAL_VIDEOS = 60; // number of pre-rendered random sequences
+      const TOTAL_VIDEOS = 60; // pre-rendered random sequences
       let lastIndex = -1;
 
-      // Pick a random video index different from last
+      // Preload the next video in a hidden <video> element
+      const nextVideo = document.createElement("video");
+      nextVideo.preload = "auto";
+      nextVideo.crossOrigin = "anonymous";
+
       function pickRandomIndex() {
         let idx;
         do {
@@ -46,21 +50,29 @@
         return idx;
       }
 
-      // Play the next random pre-rendered video
-      function playNextVideo() {
+      function preloadNext() {
         const idx = pickRandomIndex();
-        const src = `./assets/videos/target0_random_${idx}.mp4`;
-        videoEl.setAttribute("src", src);
-        videoEl.load();
-        videoEl.play();
+        nextVideo.src = `./assets/videos/target0_random_${idx}.mp4`;
+        nextVideo.load();
       }
 
-      // Start playback when target is found
+      function playNextVideo() {
+        // Swap preloaded video into <a-video>
+        videoEl.setAttribute("src", nextVideo.src);
+        videoEl.load();
+        videoEl.play();
+
+        // Immediately preload the next video
+        preloadNext();
+      }
+
+      // Start playing when target is found
       targetEl.addEventListener("targetFound", () => {
+        preloadNext(); // prepare first video
         playNextVideo();
       });
 
-      // When current video ends, play a different random video
+      // When current video ends, play next preloaded video
       videoEl.addEventListener("ended", () => {
         if (targetEl.components["mindar-image-target"].data.found) {
           playNextVideo();
