@@ -25,14 +25,15 @@
     }
     #audioToggle {
       position: fixed;
-      bottom: 5%;
+      bottom: 5%;      /* bottom right */
       right: 5%;
       z-index: 20;
       padding: 0.5em 1em;
       font-size: 16px;
       cursor: pointer;
-      display: none;
+      display: none;   /* hidden initially */
     }
+    #arScene { display: block; }
   </style>
 </head>
 <body>
@@ -40,8 +41,8 @@
   <button id="startAR">Start AR</button>
   <button id="audioToggle">🔊 Play Audio</button>
 
-  <video id="videoA" muted playsinline></video>
-  <video id="videoB" muted playsinline></video>
+  <video id="videoA" style="display:none" muted playsinline></video>
+  <video id="videoB" style="display:none" muted playsinline></video>
 
   <audio id="bgAudio" loop playsinline>
     <source src="./assets/audio/background.mp3" type="audio/mpeg">
@@ -85,9 +86,9 @@
     let activeVideo = videoA;
     let nextVideo = videoB;
     let isActive = false;
-    let audioButtonShown = false;
+
+    // User audio preference: true = on, false = off
     let userAudioPreference = true;
-    let monitoring = false;
 
     function pickRandomIndex() {
       let idx;
@@ -106,24 +107,32 @@
     function swapVideo() {
       const flip = Math.random() < 0.5;
       videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
-      videoPlane.setAttribute("material", "shader: flat; src: #" + nextVideo.id);
+      videoPlane.setAttribute("material", "src", nextVideo);
       nextVideo.play();
       [activeVideo, nextVideo] = [nextVideo, activeVideo];
       preloadVideo(nextVideo);
     }
 
     function monitorVideo() {
-      if (isActive && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration - 0.05) {
+      if (
+        isActive &&
+        activeVideo.duration > 0 &&
+        activeVideo.currentTime >= activeVideo.duration - 0.05
+      ) {
         swapVideo();
       }
       requestAnimationFrame(monitorVideo);
     }
 
+    // Start AR scene
     startBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
+      audioToggleBtn.style.display = "block"; // show audio button
+      monitorVideo();
     });
 
+    // Audio toggle button
     audioToggleBtn.addEventListener("click", async () => {
       try {
         if (bgAudio.paused) {
@@ -142,35 +151,24 @@
 
     targetEl.addEventListener("targetFound", async () => {
       isActive = true;
-
-      if (!audioButtonShown) {
-        audioToggleBtn.style.display = "block";
-        audioButtonShown = true;
-      }
-
+      document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
       preloadVideo(videoA);
       preloadVideo(videoB);
-      activeVideo.currentTime = 0;
-      nextVideo.currentTime = 0;
       activeVideo.play();
 
-      if (!monitoring) {
-        monitoring = true;
-        monitorVideo();
-      }
-
       if (userAudioPreference) {
-        try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
+        try {
+          await bgAudio.play();
+          audioToggleBtn.textContent = "🔇 Pause Audio";
+        } catch {}
       }
     });
 
     targetEl.addEventListener("targetLost", () => {
       isActive = false;
-
+      document.querySelector("a-scene").object3D.background = null;
       activeVideo.pause();
       nextVideo.pause();
-      activeVideo.currentTime = 0;
-      nextVideo.currentTime = 0;
 
       if (!bgAudio.paused) bgAudio.pause();
       audioToggleBtn.textContent = userAudioPreference ? "🔇 Pause Audio" : "🔊 Play Audio";
