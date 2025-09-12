@@ -6,7 +6,9 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   </head>
   <body>
-    <video id="hiddenVideo" style="display:none" autoplay muted playsinline></video>
+    <!-- Hidden videos -->
+    <video id="videoA" style="display:none" autoplay muted playsinline></video>
+    <video id="videoB" style="display:none" autoplay muted playsinline></video>
 
     <a-scene
       mindar-image="imageTargetSrc: ./assets/targets/targets.mind"
@@ -26,17 +28,21 @@
           height="1"
           position="0 0 0"
           look-at="[camera]"
-          material="shader: flat; src: #hiddenVideo"
+          material="shader: flat; src: #videoA"
         ></a-plane>
       </a-entity>
     </a-scene>
 
     <script>
-      const hiddenVideo = document.getElementById("hiddenVideo");
+      const videoPlane = document.getElementById("videoPlane");
       const targetEl = document.getElementById("target0");
+      const videoA = document.getElementById("videoA");
+      const videoB = document.getElementById("videoB");
 
       const TOTAL_VIDEOS = 60;
       let lastIndex = -1;
+      let activeVideo = videoA;
+      let nextVideo = videoB;
       let isActive = false;
 
       function pickRandomIndex() {
@@ -46,30 +52,49 @@
         return idx;
       }
 
-      function playNextVideo() {
+      function preloadVideo(videoEl) {
         const idx = pickRandomIndex();
-        hiddenVideo.src = `./assets/videos/target0_random_${idx}.mp4`;
-        hiddenVideo.currentTime = 0;
-        hiddenVideo.play();
+        videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
+        videoEl.currentTime = 0;
+        videoEl.load();
       }
 
-      // Instead of 'ended', check currentTime vs duration
+      function swapVideo() {
+        // Swap plane material to next preloaded video
+        videoPlane.setAttribute("material", "src", nextVideo);
+        nextVideo.play();
+
+        // Swap references
+        [activeVideo, nextVideo] = [nextVideo, activeVideo];
+
+        // Preload the next video
+        preloadVideo(nextVideo);
+      }
+
       function monitorVideo() {
-        if (isActive && hiddenVideo.duration > 0 && hiddenVideo.currentTime >= hiddenVideo.duration - 0.05) {
-          playNextVideo();
+        if (
+          isActive &&
+          activeVideo.duration > 0 &&
+          activeVideo.currentTime >= activeVideo.duration - 0.05
+        ) {
+          swapVideo();
         }
         requestAnimationFrame(monitorVideo);
       }
 
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
-        playNextVideo();
+        // Preload both videos
+        preloadVideo(videoA);
+        preloadVideo(videoB);
+        activeVideo.play();
         monitorVideo();
       });
 
       targetEl.addEventListener("targetLost", () => {
         isActive = false;
-        hiddenVideo.pause();
+        activeVideo.pause();
+        nextVideo.pause();
       });
     </script>
   </body>
