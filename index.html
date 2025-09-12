@@ -33,7 +33,6 @@
       cursor: pointer;
       display: none;
     }
-    #arScene { display: block; }
   </style>
 </head>
 <body>
@@ -67,7 +66,7 @@
         position="0 0 0"
         look-at="[camera]"
         material="shader: flat; src: #videoA"
-        visible="false"
+        visible="true"
       ></a-plane>
     </a-entity>
   </a-scene>
@@ -108,7 +107,7 @@
     function swapVideo() {
       const flip = Math.random() < 0.5;
       videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
-      videoPlane.setAttribute("material", "src", nextVideo);
+      videoPlane.setAttribute("material", "shader: flat; src: #" + nextVideo.id);
       nextVideo.play();
       [activeVideo, nextVideo] = [nextVideo, activeVideo];
       preloadVideo(nextVideo);
@@ -144,8 +143,10 @@
 
     targetEl.addEventListener("targetFound", async () => {
       isActive = true;
-      videoPlane.setAttribute("visible", true); // show video plane
-      document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
+
+      // Restore video material
+      videoPlane.setAttribute("material", `shader: flat; src: #${activeVideo.id}`);
+      videoPlane.setAttribute("visible", true);
 
       if (!audioButtonShown) {
         audioToggleBtn.style.display = "block";
@@ -173,8 +174,9 @@
 
     targetEl.addEventListener("targetLost", () => {
       isActive = false;
-      videoPlane.setAttribute("visible", false); // hide video plane
-      document.querySelector("a-scene").object3D.background = null;
+
+      // Set video plane to white but keep camera feed visible
+      videoPlane.setAttribute("material", "color: white; shader: flat");
 
       activeVideo.pause();
       nextVideo.pause();
