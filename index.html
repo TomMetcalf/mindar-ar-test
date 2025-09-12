@@ -41,7 +41,6 @@
   <button id="startAR">Start AR</button>
   <button id="audioToggle">🔊 Play Audio</button>
 
-  <!-- Videos must remain visible to A-Frame -->
   <video id="videoA" muted playsinline></video>
   <video id="videoB" muted playsinline></video>
 
@@ -89,6 +88,7 @@
     let isActive = false;
     let audioButtonShown = false;
     let userAudioPreference = true;
+    let monitoring = false;
 
     function pickRandomIndex() {
       let idx;
@@ -114,11 +114,7 @@
     }
 
     function monitorVideo() {
-      if (
-        isActive &&
-        activeVideo.duration > 0 &&
-        activeVideo.currentTime >= activeVideo.duration - 0.05
-      ) {
+      if (isActive && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration - 0.05) {
         swapVideo();
       }
       requestAnimationFrame(monitorVideo);
@@ -127,7 +123,7 @@
     startBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
-      // Do NOT start monitorVideo yet
+      // monitorVideo will start after first targetFound
     });
 
     audioToggleBtn.addEventListener("click", async () => {
@@ -155,11 +151,16 @@
         audioButtonShown = true;
       }
 
-      if (!activeVideo.src) {
-        preloadVideo(videoA);
-        preloadVideo(videoB);
-        activeVideo.play();
-        monitorVideo(); // start monitoring loop only once
+      // Preload videos and reset
+      preloadVideo(videoA);
+      preloadVideo(videoB);
+      activeVideo.currentTime = 0;
+      nextVideo.currentTime = 0;
+      activeVideo.play();
+
+      if (!monitoring) {
+        monitoring = true;
+        monitorVideo();
       }
 
       if (userAudioPreference) {
@@ -173,8 +174,11 @@
     targetEl.addEventListener("targetLost", () => {
       isActive = false;
       document.querySelector("a-scene").object3D.background = null;
+
       activeVideo.pause();
       nextVideo.pause();
+      activeVideo.currentTime = 0;
+      nextVideo.currentTime = 0;
 
       if (!bgAudio.paused) bgAudio.pause();
       audioToggleBtn.textContent = userAudioPreference ? "🔇 Pause Audio" : "🔊 Play Audio";
