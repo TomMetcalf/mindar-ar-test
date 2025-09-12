@@ -11,7 +11,7 @@
         top: 40%;
         left: 50%;
         transform: translate(-50%, -50%);
-        z-index: 10;
+        z-index: 20;
         padding: 1em 2em;
         font-size: 18px;
         cursor: pointer;
@@ -20,16 +20,24 @@
         position: fixed;
         top: 10%;
         right: 5%;
-        z-index: 10;
+        z-index: 20;
         padding: 0.5em 1em;
         font-size: 16px;
         cursor: pointer;
       }
-      /* Hide the AR scene initially */
-      #arScene { display: none; }
+      /* White overlay to hide camera feed */
+      #whiteOverlay {
+        position: fixed;
+        top:0; left:0;
+        width:100%; height:100%;
+        background-color: white;
+        z-index: 10;
+      }
+      #arScene { display:block; }
     </style>
   </head>
   <body>
+    <div id="whiteOverlay"></div>
     <button id="startAR">Start AR</button>
     <button id="audioToggle">🔊 Play Audio</button>
 
@@ -40,7 +48,6 @@
       <source src="./assets/audio/background.mp3" type="audio/mpeg">
     </audio>
 
-    <!-- AR Scene initially hidden -->
     <a-scene
       id="arScene"
       mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
@@ -65,13 +72,13 @@
     </a-scene>
 
     <script>
+      const whiteOverlay = document.getElementById("whiteOverlay");
       const startBtn = document.getElementById("startAR");
       const sceneEl = document.getElementById("arScene");
       const videoPlane = document.getElementById("videoPlane");
       const targetEl = document.getElementById("target0");
       const videoA = document.getElementById("videoA");
       const videoB = document.getElementById("videoB");
-
       const bgAudio = document.getElementById("bgAudio");
       const audioToggleBtn = document.getElementById("audioToggle");
 
@@ -115,10 +122,10 @@
         requestAnimationFrame(monitorVideo);
       }
 
-      // Start AR scene when user clicks button
+      // Start AR: remove overlay
       startBtn.addEventListener("click", async () => {
+        whiteOverlay.style.display = "none"; // hide the white screen
         startBtn.style.display = "none";
-        sceneEl.style.display = "block"; // show AR scene
         monitorVideo();
       });
 
@@ -137,6 +144,7 @@
         }
       });
 
+      // AR target events
       targetEl.addEventListener("targetFound", async () => {
         isActive = true;
         document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
@@ -144,7 +152,6 @@
         preloadVideo(videoB);
         activeVideo.play();
 
-        // Autoplay audio when target is found
         try {
           await bgAudio.play();
           audioToggleBtn.textContent = "🔇 Pause Audio";
@@ -157,7 +164,6 @@
         activeVideo.pause();
         nextVideo.pause();
 
-        // Auto-pause audio when target lost
         if (!bgAudio.paused) bgAudio.pause();
         audioToggleBtn.textContent = "🔊 Play Audio";
       });
