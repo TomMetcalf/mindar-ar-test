@@ -26,7 +26,7 @@
     <video id="videoB" style="display:none" autoplay muted playsinline></video>
 
     <!-- Background audio -->
-    <audio id="bgAudio" loop>
+    <audio id="bgAudio" loop playsinline>
       <source src="./assets/audio/background.mp3" type="audio/mpeg">
     </audio>
 
@@ -115,13 +115,17 @@
         requestAnimationFrame(monitorVideo);
       }
 
-      // Start AR on user interaction
+      // Start AR on user interaction (iOS-safe)
       startBtn.addEventListener("click", async () => {
         startBtn.style.display = "none";
         sceneEl.style.display = "block";
 
-        // Play background audio (allowed by user gesture)
-        try { await bgAudio.play(); } catch(e) { console.log("Audio play failed", e); }
+        // iOS workaround: unlock audio context
+        try {
+          await bgAudio.play(); // user gesture allows playback
+        } catch (err) {
+          console.log("Audio failed to play:", err);
+        }
 
         monitorVideo();
       });
