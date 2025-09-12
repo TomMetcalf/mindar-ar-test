@@ -33,84 +33,77 @@
     <script>
       // Clip start/end times
       const clipTimes = [
-        [0, 5],           // Clip 1 (start)
+        [0, 5],           // Clip 1
         [5, 8],           // Clip 2
         [8, 12],          // Clip 3
         [12, 15],         // Clip 4
         [15, 19.333333],  // Clip 5
         [19.333333, 22.333333], // Clip 6
-        [22.333333, 23.333333]  // Clip 7 (end)
+        [22.333333, 23.333333]  // Clip 7
       ];
 
       const videoEl = document.getElementById("videoTarget0");
       const targetEl = document.getElementById("target0");
 
       let isActive = false;
-      let currentClip = null;
-      let middlePlayedCount = 0;
+      let currentClipIndex = null;
       let middleIndexes = [];
       let lastMiddleSequence = [];
 
-      // Pick 3 random clips from clips 2–6
+      function arraysEqual(a, b) {
+        if (!a || !b || a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+        return true;
+      }
+
+      // Pick 3 random middle clips (2–6)
       function pickMiddleClips() {
-        const middlePool = [1,2,3,4,5]; // indexes for clips 2–6
-
-        // Shuffle the pool
+        const middlePool = [1,2,3,4,5];
         const shuffled = middlePool.sort(() => Math.random() - 0.5);
-
-        // Take first 3 clips
         let newSequence = shuffled.slice(0, 3);
 
-        // Avoid repeating previous sequence
         if (arraysEqual(newSequence, lastMiddleSequence)) {
           [newSequence[0], newSequence[1]] = [newSequence[1], newSequence[0]];
         }
 
         middleIndexes = newSequence;
         lastMiddleSequence = [...newSequence];
-        middlePlayedCount = 0; // reset counter
-      }
-
-      function arraysEqual(a, b) {
-        if (!a || !b || a.length !== b.length) return false;
-        for (let i = 0; i < a.length; i++) {
-          if (a[i] !== b[i]) return false;
-        }
-        return true;
       }
 
       function playClip(index) {
-        currentClip = clipTimes[index];
-        videoEl.currentTime = currentClip[0];
+        currentClipIndex = index;
+        const clip = clipTimes[index];
+        videoEl.currentTime = clip[0];
         videoEl.play();
       }
 
-      function playNext() {
+      function scheduleNextClip() {
         if (!isActive) return;
 
-        if (middlePlayedCount === 0) {
-          playClip(0); // Clip 1
-          middlePlayedCount++;
-        } else if (middlePlayedCount <= middleIndexes.length) {
-          // Only play the 3 randomly selected middle clips
-          playClip(middleIndexes[middlePlayedCount - 1]);
-          middlePlayedCount++;
-        } else {
-          playClip(6); // Clip 7
-          pickMiddleClips(); // reshuffle middle clips
+        if (currentClipIndex === 0) {
+          // Clip 1 finished → first middle clip
+          playClip(middleIndexes[0]);
+        } else if (middleIndexes.includes(currentClipIndex)) {
+          const idx = middleIndexes.indexOf(currentClipIndex);
+          if (idx < middleIndexes.length - 1) {
+            playClip(middleIndexes[idx + 1]);
+          } else {
+            playClip(6); // Clip 7
+          }
+        } else if (currentClipIndex === 6) {
+          pickMiddleClips(); // reshuffle for next loop
+          playClip(0);       // start new loop with Clip 1
         }
       }
 
-      videoEl.ontimeupdate = () => {
-        if (isActive && currentClip && videoEl.currentTime >= currentClip[1]) {
-          playNext();
-        }
+      videoEl.onended = () => {
+        scheduleNextClip();
       };
 
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
         pickMiddleClips();
-        playNext();
+        playClip(0); // start with Clip 1
       });
 
       targetEl.addEventListener("targetLost", () => {
