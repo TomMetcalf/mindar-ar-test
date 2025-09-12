@@ -6,6 +6,9 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   </head>
   <body>
+    <!-- Hidden HTML video element -->
+    <video id="hiddenVideo" style="display:none" autoplay muted playsinline></video>
+
     <a-scene
       mindar-image="imageTargetSrc: ./assets/targets/targets.mind"
       color-space="sRGB"
@@ -17,10 +20,21 @@
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <a-entity id="target0" mindar-image-target="targetIndex: 0"></a-entity>
+      <!-- Video display plane -->
+      <a-entity id="target0" mindar-image-target="targetIndex: 0">
+        <a-plane
+          id="videoPlane"
+          width="1"
+          height="1"
+          position="0 0 0"
+          look-at="[camera]"
+          material="shader: flat; src: #hiddenVideo"
+        ></a-plane>
+      </a-entity>
     </a-scene>
 
     <script>
+      const hiddenVideo = document.getElementById("hiddenVideo");
       const targetEl = document.getElementById("target0");
 
       const TOTAL_VIDEOS = 60; // total pre-rendered sequences
@@ -35,48 +49,28 @@
         return idx;
       }
 
-      function createVideoEntity(src) {
-        const videoEl = document.createElement("a-video");
-        videoEl.setAttribute("src", src);
-        videoEl.setAttribute("width", "1");
-        videoEl.setAttribute("height", "1");
-        videoEl.setAttribute("position", "0 0 0");
-        videoEl.setAttribute("look-at", "[camera]");
-        videoEl.setAttribute("autoplay", true);
-
-        // When this video ends, remove it and create a new random one
-        videoEl.addEventListener("ended", () => {
-          if (targetEl.components["mindar-image-target"].data.found) {
-            targetEl.removeChild(videoEl);
-            playNextVideo();
-          }
-        });
-
-        return videoEl;
-      }
-
       function playNextVideo() {
         const idx = pickRandomIndex();
-        const src = `./assets/videos/target0_random_${idx}.mp4`;
-        const videoEl = createVideoEntity(src);
-        targetEl.appendChild(videoEl);
-        const domVideo = videoEl.components.material.material.map.image;
-        domVideo.currentTime = 0;
-        domVideo.play();
+        hiddenVideo.src = `./assets/videos/target0_random_${idx}.mp4`;
+        hiddenVideo.currentTime = 0;
+        hiddenVideo.play();
       }
+
+      // When current video ends, play a new random sequence
+      hiddenVideo.addEventListener("ended", () => {
+        if (targetEl.components["mindar-image-target"].data.found) {
+          playNextVideo();
+        }
+      });
 
       // Start playback when target is found
       targetEl.addEventListener("targetFound", () => {
         playNextVideo();
       });
 
-      // Pause current video when target is lost
+      // Pause video when target is lost
       targetEl.addEventListener("targetLost", () => {
-        const video = targetEl.querySelector("a-video");
-        if (video) {
-          const domVideo = video.components.material.material.map.image;
-          domVideo.pause();
-        }
+        hiddenVideo.pause();
       });
     </script>
   </body>
