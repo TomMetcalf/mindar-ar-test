@@ -15,14 +15,6 @@
       framerate="12"
       look-at="[camera]"
     >
-      <a-assets>
-        <!-- Preload all 60 random sequence videos -->
-        <video id="video0" src="./assets/videos/target0_random_0.mp4" preload="auto" crossorigin="anonymous"></video>
-        <video id="video1" src="./assets/videos/target0_random_1.mp4" preload="auto" crossorigin="anonymous"></video>
-        <video id="video2" src="./assets/videos/target0_random_2.mp4" preload="auto" crossorigin="anonymous"></video>
-        <!-- ... continue up to video59 -->
-      </a-assets>
-
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity id="target0" mindar-image-target="targetIndex: 0">
@@ -32,49 +24,50 @@
           height="1"
           position="0 0 0"
           look-at="[camera]"
-          src="#video0"
           autoplay
         ></a-video>
       </a-entity>
     </a-scene>
 
     <script>
-      const TOTAL_VIDEOS = 60;
       const videoEl = document.getElementById("videoTarget0");
       const targetEl = document.getElementById("target0");
-      let lastIndex = 0;
 
-      // Pick a new random video ID, different from the last one
-      function pickNextVideoId() {
+      const TOTAL_VIDEOS = 60; // number of pre-rendered random sequences
+      let lastIndex = -1;
+
+      // Pick a random video index different from last
+      function pickRandomIndex() {
         let idx;
         do {
           idx = Math.floor(Math.random() * TOTAL_VIDEOS);
         } while (idx === lastIndex);
         lastIndex = idx;
-        return `#video${idx}`;
+        return idx;
       }
 
-      // Play a new video
+      // Play the next random pre-rendered video
       function playNextVideo() {
-        const nextId = pickNextVideoId();
-        videoEl.setAttribute("src", nextId);
+        const idx = pickRandomIndex();
+        const src = `./assets/videos/target0_random_${idx}.mp4`;
+        videoEl.setAttribute("src", src);
         videoEl.load();
         videoEl.play();
       }
 
-      // Start playing when target is found
+      // When target is found, start first video
       targetEl.addEventListener("targetFound", () => {
         playNextVideo();
       });
 
-      // When video ends, play a new random one
+      // When current video ends, play another random video
       videoEl.addEventListener("ended", () => {
         if (targetEl.components["mindar-image-target"].data.found) {
           playNextVideo();
         }
       });
 
-      // Pause video when target is lost
+      // Pause video when target lost
       targetEl.addEventListener("targetLost", () => {
         videoEl.pause();
       });
