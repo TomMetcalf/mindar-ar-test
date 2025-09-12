@@ -66,7 +66,6 @@
         position="0 0 0"
         look-at="[camera]"
         material="shader: flat; src: #videoA"
-        visible="true"
       ></a-plane>
     </a-entity>
   </a-scene>
@@ -144,10 +143,6 @@
     targetEl.addEventListener("targetFound", async () => {
       isActive = true;
 
-      // Restore video material
-      videoPlane.setAttribute("material", `shader: flat; src: #${activeVideo.id}`);
-      videoPlane.setAttribute("visible", true);
-
       if (!audioButtonShown) {
         audioToggleBtn.style.display = "block";
         audioButtonShown = true;
@@ -165,18 +160,12 @@
       }
 
       if (userAudioPreference) {
-        try {
-          await bgAudio.play();
-          audioToggleBtn.textContent = "🔇 Pause Audio";
-        } catch {}
+        try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
       }
     });
 
     targetEl.addEventListener("targetLost", () => {
       isActive = false;
-
-      // Set video plane to white but keep camera feed visible
-      videoPlane.setAttribute("material", "color: white; shader: flat");
 
       activeVideo.pause();
       nextVideo.pause();
