@@ -10,6 +10,11 @@
     <video id="videoA" style="display:none" autoplay muted playsinline></video>
     <video id="videoB" style="display:none" autoplay muted playsinline></video>
 
+    <!-- Background audio -->
+    <audio id="bgAudio" loop>
+      <source src="./assets/audio/the-flow.mp3" type="audio/mpeg">
+    </audio>
+
     <a-scene
       mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
       color-space="sRGB"
@@ -23,6 +28,7 @@
 
       <!-- AR Target -->
       <a-entity id="target0" mindar-image-target="targetIndex: 0">
+
         <!-- Video plane attached to target -->
         <a-plane
           id="videoPlane"
@@ -41,6 +47,7 @@
       const videoA = document.getElementById("videoA");
       const videoB = document.getElementById("videoB");
       const sceneEl = document.querySelector("a-scene");
+      const bgAudio = document.getElementById("bgAudio");
 
       const TOTAL_VIDEOS = 60;
       let lastIndex = -1;
@@ -95,6 +102,9 @@
         // Set background to white when target is found
         sceneEl.object3D.background = new THREE.Color(0xffffff);
 
+        // Play background audio
+        if(bgAudio.paused) bgAudio.play();
+
         preloadVideo(videoA);
         preloadVideo(videoB);
         activeVideo.play();
@@ -106,6 +116,9 @@
 
         // Restore camera feed
         sceneEl.object3D.background = null;
+
+        // Pause background audio
+        bgAudio.pause();
 
         activeVideo.pause();
         nextVideo.pause();
