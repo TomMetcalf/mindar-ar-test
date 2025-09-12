@@ -25,7 +25,6 @@
         font-size: 16px;
         cursor: pointer;
       }
-      /* White overlay to hide camera feed */
       #whiteOverlay {
         position: fixed;
         top:0; left:0;
@@ -88,6 +87,10 @@
       let nextVideo = videoB;
       let isActive = false;
 
+      // Track user audio preference
+      let userAudioPreference = true; // default: on
+      let audioManuallyChanged = false;
+
       function pickRandomIndex() {
         let idx;
         do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
@@ -122,9 +125,8 @@
         requestAnimationFrame(monitorVideo);
       }
 
-      // Start AR: remove overlay
-      startBtn.addEventListener("click", async () => {
-        whiteOverlay.style.display = "none"; // hide the white screen
+      startBtn.addEventListener("click", () => {
+        whiteOverlay.style.display = "none";
         startBtn.style.display = "none";
         monitorVideo();
       });
@@ -135,16 +137,18 @@
           if (bgAudio.paused) {
             await bgAudio.play();
             audioToggleBtn.textContent = "🔇 Pause Audio";
+            userAudioPreference = true;
           } else {
             bgAudio.pause();
             audioToggleBtn.textContent = "🔊 Play Audio";
+            userAudioPreference = false;
           }
+          audioManuallyChanged = true;
         } catch (err) {
           console.log("Audio play failed:", err);
         }
       });
 
-      // AR target events
       targetEl.addEventListener("targetFound", async () => {
         isActive = true;
         document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
@@ -152,10 +156,13 @@
         preloadVideo(videoB);
         activeVideo.play();
 
-        try {
-          await bgAudio.play();
-          audioToggleBtn.textContent = "🔇 Pause Audio";
-        } catch {}
+        // Autoplay audio only if user hasn't turned it off manually
+        if (userAudioPreference && !audioManuallyChanged) {
+          try {
+            await bgAudio.play();
+            audioToggleBtn.textContent = "🔇 Pause Audio";
+          } catch {}
+        }
       });
 
       targetEl.addEventListener("targetLost", () => {
@@ -165,7 +172,7 @@
         nextVideo.pause();
 
         if (!bgAudio.paused) bgAudio.pause();
-        audioToggleBtn.textContent = "🔊 Play Audio";
+        audioToggleBtn.textContent = userAudioPreference ? "🔇 Pause Audio" : "🔊 Play Audio";
       });
     </script>
   </body>
