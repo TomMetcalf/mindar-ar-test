@@ -31,7 +31,7 @@
       padding: 0.5em 1em;
       font-size: 16px;
       cursor: pointer;
-      display: none; /* hidden initially */
+      display: none; /* hidden initially, now only appears after first target found */
     }
   </style>
 </head>
@@ -86,6 +86,7 @@
     let nextVideo = videoB;
     let isActive = false;
     let userAudioPreference = true;
+    let audioButtonShown = false; // track if audio button has been shown
 
     function pickRandomIndex() {
       let idx;
@@ -98,7 +99,7 @@
 
     function preloadVideo(videoEl) {
       const idx = pickRandomIndex();
-      videoEl.src = `./assets/videos/target0_random_${idx}.mp4`; // fixed template literal
+      videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
       videoEl.currentTime = 0;
       videoEl.load();
     }
@@ -123,13 +124,14 @@
       requestAnimationFrame(monitorVideo);
     }
 
+    // Start AR scene
     startBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
-      audioToggleBtn.style.display = "block"; // show audio button
       monitorVideo();
     });
 
+    // Audio toggle button
     audioToggleBtn.addEventListener("click", async () => {
       try {
         if (bgAudio.paused) {
@@ -148,10 +150,17 @@
 
     targetEl.addEventListener("targetFound", async () => {
       isActive = true;
-      document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
+
+      // Show audio button only after first target found
+      if (!audioButtonShown) {
+        audioToggleBtn.style.display = "block";
+        audioButtonShown = true;
+      }
+
       preloadVideo(videoA);
       preloadVideo(videoB);
       activeVideo.play();
+
       if (userAudioPreference) {
         try {
           await bgAudio.play();
@@ -162,7 +171,6 @@
 
     targetEl.addEventListener("targetLost", () => {
       isActive = false;
-      document.querySelector("a-scene").object3D.background = null;
       activeVideo.pause();
       nextVideo.pause();
       if (!bgAudio.paused) bgAudio.pause();
