@@ -52,27 +52,26 @@
       let middleIndexes = [];
       let lastMiddleSequence = [];
 
-      // Pick exactly 3 random middle clips (2–6)
+      // Pick exactly 3 random middle clips (clips 2–6)
       function pickMiddleClips() {
-        const middlePool = [1, 2, 3, 4, 5]; // indexes of clips 2–6
+        const middlePool = [1, 2, 3, 4, 5];
 
-        // Shuffle the pool
+        // Shuffle
         const shuffled = middlePool.sort(() => Math.random() - 0.5);
 
-        // Take first 3 clips from shuffled
-        let newSequence = shuffled.slice(0, 3);
+        // Take only 3 clips
+        middleIndexes = shuffled.slice(0, 3);
 
         // Avoid repeating previous sequence
-        if (arraysEqual(newSequence, lastMiddleSequence)) {
-          [newSequence[0], newSequence[1]] = [newSequence[1], newSequence[0]];
+        if (arraysEqual(middleIndexes, lastMiddleSequence)) {
+          [middleIndexes[0], middleIndexes[1]] = [middleIndexes[1], middleIndexes[0]];
         }
 
-        middleIndexes = newSequence;
-        lastMiddleSequence = [...newSequence];
-        middlePlayedCount = 0; // reset counter for this loop
+        lastMiddleSequence = [...middleIndexes];
+        middlePlayedCount = 0; // reset counter
       }
 
-      // Compare arrays
+      // Helper to compare arrays
       function arraysEqual(a, b) {
         if (!a || !b || a.length !== b.length) return false;
         for (let i = 0; i < a.length; i++) {
@@ -93,12 +92,12 @@
         if (middlePlayedCount === 0) {
           playClip(0); // Clip 1
           middlePlayedCount++;
-        } else if (middlePlayedCount <= 3) {
+        } else if (middlePlayedCount <= middleIndexes.length) {
           playClip(middleIndexes[middlePlayedCount - 1]); // Play one of 3 middle clips
           middlePlayedCount++;
         } else {
           playClip(6); // Clip 7
-          pickMiddleClips(); // reshuffle for next loop
+          pickMiddleClips(); // reshuffle middle clips for next loop
         }
       }
 
