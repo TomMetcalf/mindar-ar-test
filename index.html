@@ -31,7 +31,7 @@
       padding: 0.5em 1em;
       font-size: 16px;
       cursor: pointer;
-      display: none; /* hidden initially, now only appears after first target found */
+      display: none; /* hidden initially */
     }
   </style>
 </head>
@@ -57,7 +57,6 @@
     look-at="[camera]"
   >
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
       <a-plane
         id="videoPlane"
@@ -86,13 +85,11 @@
     let nextVideo = videoB;
     let isActive = false;
     let userAudioPreference = true;
-    let audioButtonShown = false; // track if audio button has been shown
+    let audioButtonShown = false;
 
     function pickRandomIndex() {
       let idx;
-      do {
-        idx = Math.floor(Math.random() * TOTAL_VIDEOS);
-      } while (idx === lastIndex);
+      do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
       lastIndex = idx;
       return idx;
     }
@@ -124,14 +121,12 @@
       requestAnimationFrame(monitorVideo);
     }
 
-    // Start AR scene
     startBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
       monitorVideo();
     });
 
-    // Audio toggle button
     audioToggleBtn.addEventListener("click", async () => {
       try {
         if (bgAudio.paused) {
@@ -150,6 +145,9 @@
 
     targetEl.addEventListener("targetFound", async () => {
       isActive = true;
+
+      // Keep white background behind video
+      document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
 
       // Show audio button only after first target found
       if (!audioButtonShown) {
@@ -171,8 +169,13 @@
 
     targetEl.addEventListener("targetLost", () => {
       isActive = false;
+
+      // Remove white background so camera shows again
+      document.querySelector("a-scene").object3D.background = null;
+
       activeVideo.pause();
       nextVideo.pause();
+
       if (!bgAudio.paused) bgAudio.pause();
       audioToggleBtn.textContent = userAudioPreference ? "🔇 Pause Audio" : "🔊 Play Audio";
     });
