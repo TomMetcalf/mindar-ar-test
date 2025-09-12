@@ -29,7 +29,7 @@
       <source src="./assets/audio/background.mp3" type="audio/mpeg">
     </audio>
 
-    <!-- AR scene loads immediately -->
+    <!-- AR scene -->
     <a-scene
       mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
       color-space="sRGB"
@@ -43,7 +43,6 @@
 
       <!-- AR Target -->
       <a-entity id="target0" mindar-image-target="targetIndex: 0">
-        <!-- Video plane attached to target -->
         <a-plane
           id="videoPlane"
           width="1.2"
@@ -107,22 +106,23 @@
         requestAnimationFrame(monitorVideo);
       }
 
-      // Audio toggle button
+      // Audio toggle button (user gesture ensures playback on iOS/Android)
       audioToggleBtn.addEventListener("click", async () => {
-        if (bgAudio.paused) {
-          try {
+        try {
+          if (bgAudio.paused) {
+            bgAudio.load(); // preload and unlock
             await bgAudio.play();
             audioToggleBtn.textContent = "🔇 Pause Audio";
-          } catch (err) {
-            console.log("Audio play failed:", err);
+          } else {
+            bgAudio.pause();
+            audioToggleBtn.textContent = "🔊 Play Audio";
           }
-        } else {
-          bgAudio.pause();
-          audioToggleBtn.textContent = "🔊 Play Audio";
+        } catch (err) {
+          console.log("Audio play failed:", err);
         }
       });
 
-      // Target found/lost
+      // Target found/lost events
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
         document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
