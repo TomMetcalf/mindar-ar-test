@@ -25,7 +25,7 @@
     }
     #audioToggle {
       position: fixed;
-      bottom: 5%;      /* bottom right */
+      bottom: 5%;      
       right: 5%;
       z-index: 20;
       padding: 0.5em 1em;
@@ -33,7 +33,6 @@
       cursor: pointer;
       display: none;   /* hidden initially */
     }
-    #arScene { display: block; }
   </style>
 </head>
 <body>
@@ -86,6 +85,7 @@
     let activeVideo = videoA;
     let nextVideo = videoB;
     let isActive = false;
+    let audioButtonShown = false;  // flag to show audio button only once
 
     // User audio preference: true = on, false = off
     let userAudioPreference = true;
@@ -128,7 +128,6 @@
     startBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
-      audioToggleBtn.style.display = "block"; // show audio button
       monitorVideo();
     });
 
@@ -151,10 +150,15 @@
 
     targetEl.addEventListener("targetFound", async () => {
       isActive = true;
-      document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
       preloadVideo(videoA);
       preloadVideo(videoB);
       activeVideo.play();
+
+      // Show audio button only the first time
+      if (!audioButtonShown) {
+        audioToggleBtn.style.display = "block";
+        audioButtonShown = true;
+      }
 
       if (userAudioPreference) {
         try {
@@ -166,7 +170,6 @@
 
     targetEl.addEventListener("targetLost", () => {
       isActive = false;
-      document.querySelector("a-scene").object3D.background = null;
       activeVideo.pause();
       nextVideo.pause();
 
