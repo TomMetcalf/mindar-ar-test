@@ -11,7 +11,7 @@
     <video id="videoB" style="display:none" autoplay muted playsinline></video>
 
     <a-scene
-      mindar-image="imageTargetSrc: ./assets/targets/targets.mind"
+      mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
       vr-mode-ui="enabled: false"
@@ -21,21 +21,24 @@
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- Video display plane -->
+      <!-- Target + smoothed container -->
       <a-entity id="target0" mindar-image-target="targetIndex: 0">
-        <a-plane
-          id="videoPlane"
-          width="1"
-          height="1"
-          position="0 0 0"
-          look-at="[camera]"
-          material="shader: flat; src: #videoA"
-        ></a-plane>
+        <a-entity id="smoothedContainer">
+          <a-plane
+            id="videoPlane"
+            width="1"
+            height="1"
+            position="0 0 0"
+            look-at="[camera]"
+            material="shader: flat; src: #videoA"
+          ></a-plane>
+        </a-entity>
       </a-entity>
     </a-scene>
 
     <script>
       const videoPlane = document.getElementById("videoPlane");
+      const smoothedContainer = document.getElementById("smoothedContainer");
       const targetEl = document.getElementById("target0");
       const videoA = document.getElementById("videoA");
       const videoB = document.getElementById("videoB");
@@ -91,16 +94,34 @@
         requestAnimationFrame(monitorVideo);
       }
 
-      // Start playback when target is found
+      // Smooth the container's position and rotation
+      const lastPosition = new THREE.Vector3();
+      const lastQuaternion = new THREE.Quaternion();
+
+      function smoothUpdate() {
+        if (isActive) {
+          const targetObj = targetEl.object3D;
+
+          // Position lerp
+          lastPosition.lerp(targetObj.position, 0.2); // adjust 0.2 for more/less smoothing
+          smoothedContainer.object3D.position.copy(lastPosition);
+
+          // Rotation slerp
+          lastQuaternion.slerp(targetObj.quaternion, 0.2);
+          smoothedContainer.object3D.quaternion.copy(lastQuaternion);
+        }
+        requestAnimationFrame(smoothUpdate);
+      }
+
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
         preloadVideo(videoA);
         preloadVideo(videoB);
         activeVideo.play();
         monitorVideo();
+        smoothUpdate();
       });
 
-      // Pause both videos when target is lost
       targetEl.addEventListener("targetLost", () => {
         isActive = false;
         activeVideo.pause();
