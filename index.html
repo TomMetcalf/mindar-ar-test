@@ -20,7 +20,6 @@
       <a-entity id="target0" mindar-image-target="targetIndex: 0">
         <a-video
           id="videoTarget0"
-          src="./assets/videos/target0_allclips.mp4"
           width="1"
           height="1"
           position="0 0 0"
@@ -31,24 +30,22 @@
     </a-scene>
 
     <script>
-      // Clip start/end times
-      const clipTimes = [
-        [0, 5],           // Clip 1
-        [5, 8],           // Clip 2
-        [8, 12],          // Clip 3
-        [12, 15],         // Clip 4
-        [15, 19.333333],  // Clip 5
-        [19.333333, 22.333333], // Clip 6
-        [22.333333, 23.333333]  // Clip 7
-      ];
-
       const videoEl = document.getElementById("videoTarget0");
       const targetEl = document.getElementById("target0");
-
       let isActive = false;
       let currentClipIndex = null;
       let middleIndexes = [];
       let lastMiddleSequence = [];
+
+      const clipFiles = [
+        "T0_vid1.mp4", // fixed start
+        "T0_vid2.mp4",
+        "T0_vid3.mp4",
+        "T0_vid4.mp4",
+        "T0_vid5.mp4",
+        "T0_vid6.mp4",
+        "T0_vid7.mp4"  // fixed end
+      ];
 
       function arraysEqual(a, b) {
         if (!a || !b || a.length !== b.length) return false;
@@ -56,11 +53,10 @@
         return true;
       }
 
-      // Pick 3 random middle clips (2–6)
       function pickMiddleClips() {
         const middlePool = [1,2,3,4,5];
         const shuffled = middlePool.sort(() => Math.random() - 0.5);
-        let newSequence = shuffled.slice(0, 3);
+        let newSequence = shuffled.slice(0,3);
 
         if (arraysEqual(newSequence, lastMiddleSequence)) {
           [newSequence[0], newSequence[1]] = [newSequence[1], newSequence[0]];
@@ -70,40 +66,38 @@
         lastMiddleSequence = [...newSequence];
       }
 
-      function playClip(index) {
-        currentClipIndex = index;
-        const clip = clipTimes[index];
-        videoEl.currentTime = clip[0];
-        videoEl.play();
-      }
-
-      function scheduleNextClip() {
+      function playNextClip() {
         if (!isActive) return;
 
-        if (currentClipIndex === 0) {
-          // Clip 1 finished → first middle clip
-          playClip(middleIndexes[0]);
+        if (currentClipIndex === null) {
+          currentClipIndex = 0; // Clip 1
+        } else if (currentClipIndex === 0) {
+          currentClipIndex = middleIndexes[0]; // first middle clip
         } else if (middleIndexes.includes(currentClipIndex)) {
           const idx = middleIndexes.indexOf(currentClipIndex);
           if (idx < middleIndexes.length - 1) {
-            playClip(middleIndexes[idx + 1]);
+            currentClipIndex = middleIndexes[idx + 1]; // next middle clip
           } else {
-            playClip(6); // Clip 7
+            currentClipIndex = 6; // Clip 7
           }
         } else if (currentClipIndex === 6) {
-          pickMiddleClips(); // reshuffle for next loop
-          playClip(0);       // start new loop with Clip 1
+          pickMiddleClips();       // reshuffle middle clips
+          currentClipIndex = 0;    // start new loop
         }
+
+        videoEl.src = `./assets/videos/${clipFiles[currentClipIndex]}`;
+        videoEl.play();
       }
 
       videoEl.onended = () => {
-        scheduleNextClip();
+        playNextClip();
       };
 
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
         pickMiddleClips();
-        playClip(0); // start with Clip 1
+        currentClipIndex = null;
+        playNextClip();
       });
 
       targetEl.addEventListener("targetLost", () => {
