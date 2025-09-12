@@ -77,7 +77,6 @@
       let activeVideo = videoA;
       let nextVideo = videoB;
       let isActive = false;
-      let audioWasPlaying = false; // track if user had audio playing
 
       function pickRandomIndex() {
         let idx;
@@ -113,15 +112,9 @@
         requestAnimationFrame(monitorVideo);
       }
 
-      startBtn.addEventListener("click", async () => {
+      startBtn.addEventListener("click", () => {
         startBtn.style.display = "none";
         sceneEl.style.display = "block";
-
-        // Attempt autoplay (works on desktop)
-        try {
-          await bgAudio.play();
-          audioToggleBtn.textContent = "🔇 Pause Audio";
-        } catch {}
         monitorVideo();
       });
 
@@ -141,17 +134,18 @@
       });
 
       // AR target events
-      targetEl.addEventListener("targetFound", () => {
+      targetEl.addEventListener("targetFound", async () => {
         isActive = true;
         document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
         preloadVideo(videoA);
         preloadVideo(videoB);
         activeVideo.play();
 
-        // Resume audio if user had it on
-        if (audioWasPlaying) {
-          bgAudio.play().catch(() => {});
-        }
+        // Autoplay background audio when target is found
+        try {
+          await bgAudio.play();
+          audioToggleBtn.textContent = "🔇 Pause Audio";
+        } catch {} // fails silently if autoplay is blocked
       });
 
       targetEl.addEventListener("targetLost", () => {
@@ -160,9 +154,9 @@
         activeVideo.pause();
         nextVideo.pause();
 
-        // Auto-pause audio and remember state
-        audioWasPlaying = !bgAudio.paused;
+        // Auto-pause audio when target lost
         if (!bgAudio.paused) bgAudio.pause();
+        audioToggleBtn.textContent = "🔊 Play Audio";
       });
     </script>
   </body>
