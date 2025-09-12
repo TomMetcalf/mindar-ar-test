@@ -18,7 +18,6 @@
       device-orientation-permission-ui="enabled: false"
       framerate="12"
       look-at="[camera]"
-      background="color: #000000"
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
@@ -34,7 +33,7 @@
           visible="false"
         ></a-plane>
 
-        <!-- Video plane directly attached to target -->
+        <!-- Video plane -->
         <a-plane
           id="videoPlane"
           width="1.2"
@@ -53,7 +52,7 @@
       const videoB = document.getElementById("videoB");
       const whiteBg = document.getElementById("whiteBg");
 
-      const TOTAL_VIDEOS = 60;
+      const TOTAL_VIDEOS = 60; // Number of video files
       let lastIndex = -1;
       let activeVideo = videoA;
       let nextVideo = videoB;
@@ -74,14 +73,18 @@
       }
 
       function swapVideo() {
+        // Random horizontal flip (50% chance)
         const flip = Math.random() < 0.5;
         videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
 
+        // Swap to next preloaded video
         videoPlane.setAttribute("material", "src", nextVideo);
         nextVideo.play();
 
+        // Swap references
         [activeVideo, nextVideo] = [nextVideo, activeVideo];
 
+        // Preload the next video
         preloadVideo(nextVideo);
       }
 
@@ -98,7 +101,7 @@
 
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
-        whiteBg.setAttribute("visible", "true");
+        whiteBg.setAttribute("visible", "true"); // show white plane
         preloadVideo(videoA);
         preloadVideo(videoB);
         activeVideo.play();
@@ -107,7 +110,7 @@
 
       targetEl.addEventListener("targetLost", () => {
         isActive = false;
-        whiteBg.setAttribute("visible", "false");
+        whiteBg.setAttribute("visible", "false"); // hide white plane
         activeVideo.pause();
         nextVideo.pause();
       });
