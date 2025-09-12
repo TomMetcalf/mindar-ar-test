@@ -1,0 +1,124 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+  </head>
+  <body>
+    <a-scene
+      mindar-image="imageTargetSrc: ./assets/targets/targets.mind"
+      color-space="sRGB"
+      renderer="colorManagement: true, physicallyCorrectLights"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: false"
+      framerate="12"
+      look-at="[camera]"
+    >
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+      <!-- Target 0 -->
+      <a-entity id="target0" mindar-image-target="targetIndex: 0">
+        <a-video
+          id="videoTarget0"
+          src="./assets/videos/target0_allclips.mp4"
+          width="1"
+          height="1"
+          position="0 0 0"
+          look-at="[camera]"
+          autoplay
+        ></a-video>
+      </a-entity>
+    </a-scene>
+
+    <script>
+      // Precise start/end times for your 7 clips
+      const clipTimes = [
+        [0, 5],           // clip 1 (start)
+        [5, 8],           // clip 2
+        [8, 12],          // clip 3
+        [12, 15],         // clip 4
+        [15, 19.333333],  // clip 5
+        [19.333333, 22.333333], // clip 6
+        [22.333333, 23.333333]  // clip 7 (end)
+      ];
+
+      const videoEl = document.getElementById("videoTarget0");
+      const targetEl = document.getElementById("target0");
+
+      let isActive = false;
+      let currentClip = null;
+      let middlePlayedCount = 0;
+      let middleIndexes = [];
+      let lastMiddleSequence = [];
+
+      // Pick 3 random middle clips (indexes 1–5) without repeating previous sequence
+      function pickMiddleClips() {
+        const middlePool = [1, 2, 3, 4, 5];
+        let newSequence;
+        do {
+          newSequence = [];
+          while (newSequence.length < 3) {
+            const idx = middlePool[Math.floor(Math.random() * middlePool.length)];
+            if (!newSequence.includes(idx)) newSequence.push(idx);
+          }
+        } while (arraysEqual(newSequence, lastMiddleSequence));
+        lastMiddleSequence = [...newSequence];
+        middleIndexes = newSequence;
+      }
+
+      // Helper to compare arrays
+      function arraysEqual(a, b) {
+        if (!a || !b) return false;
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+          if (a[i] !== b[i]) return false;
+        }
+        return true;
+      }
+
+      function playClip(index) {
+        currentClip = clipTimes[index];
+        videoEl.currentTime = currentClip[0];
+        videoEl.play();
+      }
+
+      function playNext() {
+        if (!isActive) return;
+
+        if (middlePlayedCount === 0) {
+          // Start with clip 1
+          playClip(0);
+          middlePlayedCount++;
+        } else if (middlePlayedCount <= 3) {
+          // Play 3 random middle clips
+          playClip(middleIndexes[middlePlayedCount - 1]);
+          middlePlayedCount++;
+        } else {
+          // Play clip 7 last
+          playClip(6);
+          middlePlayedCount = 0; // reset for next loop
+          pickMiddleClips();     // reshuffle middle clips avoiding previous sequence
+        }
+      }
+
+      videoEl.ontimeupdate = () => {
+        if (isActive && currentClip && videoEl.currentTime >= currentClip[1]) {
+          playNext();
+        }
+      };
+
+      targetEl.addEventListener("targetFound", () => {
+        isActive = true;
+        middlePlayedCount = 0;
+        pickMiddleClips();
+        playNext();
+      });
+
+      targetEl.addEventListener("targetLost", () => {
+        isActive = false;
+        videoEl.pause();
+      });
+    </script>
+  </body>
+</html>
