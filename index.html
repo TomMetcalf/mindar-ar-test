@@ -25,12 +25,13 @@
     }
     #audioToggle {
       position: fixed;
-      top: 10%;
+      bottom: 5%;      /* bottom right */
       right: 5%;
       z-index: 20;
       padding: 0.5em 1em;
       font-size: 16px;
       cursor: pointer;
+      display: none;   /* hidden initially */
     }
     #arScene { display: block; }
   </style>
@@ -73,15 +74,14 @@
   <script>
     const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
-    const sceneEl = document.getElementById("arScene");
+    const audioToggleBtn = document.getElementById("audioToggle");
     const videoPlane = document.getElementById("videoPlane");
     const targetEl = document.getElementById("target0");
     const videoA = document.getElementById("videoA");
     const videoB = document.getElementById("videoB");
     const bgAudio = document.getElementById("bgAudio");
-    const audioToggleBtn = document.getElementById("audioToggle");
 
-    const TOTAL_VIDEOS = 60; // number of random video clips
+    const TOTAL_VIDEOS = 60;
     let lastIndex = -1;
     let activeVideo = videoA;
     let nextVideo = videoB;
@@ -124,10 +124,11 @@
       requestAnimationFrame(monitorVideo);
     }
 
-    // Start AR scene on button click
+    // Start AR scene
     startBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
+      audioToggleBtn.style.display = "block"; // show audio button
       monitorVideo();
     });
 
@@ -155,7 +156,6 @@
       preloadVideo(videoB);
       activeVideo.play();
 
-      // Play audio only if user preference is on
       if (userAudioPreference) {
         try {
           await bgAudio.play();
@@ -170,7 +170,6 @@
       activeVideo.pause();
       nextVideo.pause();
 
-      // Pause audio but do not reset user preference
       if (!bgAudio.paused) bgAudio.pause();
       audioToggleBtn.textContent = userAudioPreference ? "🔇 Pause Audio" : "🔊 Play Audio";
     });
