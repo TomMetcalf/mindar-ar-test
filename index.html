@@ -21,6 +21,7 @@
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
+      <!-- Video display plane -->
       <a-entity id="target0" mindar-image-target="targetIndex: 0">
         <a-plane
           id="videoPlane"
@@ -45,6 +46,7 @@
       let nextVideo = videoB;
       let isActive = false;
 
+      // Pick a random video index different from the last
       function pickRandomIndex() {
         let idx;
         do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
@@ -52,6 +54,7 @@
         return idx;
       }
 
+      // Preload a video into the hidden element
       function preloadVideo(videoEl) {
         const idx = pickRandomIndex();
         videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
@@ -59,18 +62,24 @@
         videoEl.load();
       }
 
+      // Swap the plane to the next preloaded video with optional horizontal flip
       function swapVideo() {
-        // Swap plane material to next preloaded video
+        // Randomly flip horizontally (50% chance)
+        const flip = Math.random() < 0.5;
+        videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
+
+        // Set plane material to next preloaded video
         videoPlane.setAttribute("material", "src", nextVideo);
         nextVideo.play();
 
         // Swap references
         [activeVideo, nextVideo] = [nextVideo, activeVideo];
 
-        // Preload the next video
+        // Preload the next video in background
         preloadVideo(nextVideo);
       }
 
+      // Monitor current video time to trigger swap
       function monitorVideo() {
         if (
           isActive &&
@@ -82,15 +91,16 @@
         requestAnimationFrame(monitorVideo);
       }
 
+      // Start playback when target is found
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
-        // Preload both videos
         preloadVideo(videoA);
         preloadVideo(videoB);
         activeVideo.play();
         monitorVideo();
       });
 
+      // Pause both videos when target is lost
       targetEl.addEventListener("targetLost", () => {
         isActive = false;
         activeVideo.pause();
