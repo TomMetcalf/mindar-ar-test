@@ -32,15 +32,15 @@
     </a-scene>
 
     <script>
-      // Precise start/end times for your 7 clips
+      // Clip start/end times
       const clipTimes = [
-        [0, 5],           // clip 1 (start)
-        [5, 8],           // clip 2
-        [8, 12],          // clip 3
-        [12, 15],         // clip 4
-        [15, 19.333333],  // clip 5
-        [19.333333, 22.333333], // clip 6
-        [22.333333, 23.333333]  // clip 7 (end)
+        [0, 5],           // Clip 1
+        [5, 8],           // Clip 2
+        [8, 12],          // Clip 3
+        [12, 15],         // Clip 4
+        [15, 19.333333],  // Clip 5
+        [19.333333, 22.333333], // Clip 6
+        [22.333333, 23.333333]  // Clip 7
       ];
 
       const videoEl = document.getElementById("videoTarget0");
@@ -52,33 +52,29 @@
       let middleIndexes = [];
       let lastMiddleSequence = [];
 
-      // Pick 3 random middle clips (clips 2–6) without repeating the previous sequence
+      // Pick exactly 3 random middle clips (2–6)
       function pickMiddleClips() {
-        const middlePool = [1, 2, 3, 4, 5];
+        const middlePool = [1, 2, 3, 4, 5]; // indexes of clips 2–6
 
-        // Shuffle the array
-        const shuffled = middlePool
-          .map(value => ({ value, sort: Math.random() }))
-          .sort((a, b) => a.sort - b.sort)
-          .map(({ value }) => value);
+        // Shuffle the pool
+        const shuffled = middlePool.sort(() => Math.random() - 0.5);
 
-        // Take exactly 3 clips from the shuffled array
+        // Take first 3 clips from shuffled
         let newSequence = shuffled.slice(0, 3);
 
-        // Avoid repeating the exact same sequence as last loop
+        // Avoid repeating previous sequence
         if (arraysEqual(newSequence, lastMiddleSequence)) {
           [newSequence[0], newSequence[1]] = [newSequence[1], newSequence[0]];
         }
 
+        middleIndexes = newSequence;
         lastMiddleSequence = [...newSequence];
-        middleIndexes = newSequence; // now contains exactly 3 clips
-        middlePlayedCount = 0;       // reset counter for this new set
+        middlePlayedCount = 0; // reset counter for this loop
       }
 
-      // Helper to compare arrays
+      // Compare arrays
       function arraysEqual(a, b) {
-        if (!a || !b) return false;
-        if (a.length !== b.length) return false;
+        if (!a || !b || a.length !== b.length) return false;
         for (let i = 0; i < a.length; i++) {
           if (a[i] !== b[i]) return false;
         }
@@ -95,17 +91,14 @@
         if (!isActive) return;
 
         if (middlePlayedCount === 0) {
-          // Start with clip 1
-          playClip(0);
+          playClip(0); // Clip 1
           middlePlayedCount++;
         } else if (middlePlayedCount <= 3) {
-          // Play one of the 3 middle clips
-          playClip(middleIndexes[middlePlayedCount - 1]);
+          playClip(middleIndexes[middlePlayedCount - 1]); // Play one of 3 middle clips
           middlePlayedCount++;
         } else {
-          // Play clip 7 last
-          playClip(6);
-          pickMiddleClips(); // reshuffle middle clips for next loop
+          playClip(6); // Clip 7
+          pickMiddleClips(); // reshuffle for next loop
         }
       }
 
