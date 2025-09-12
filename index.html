@@ -21,20 +21,8 @@
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- Full-screen white plane (initially hidden) -->
-      <a-plane
-        id="fullWhiteBg"
-        position="0 0 -0.5"
-        width="10"
-        height="10"
-        color="#ffffff"
-        visible="false"
-        look-at="[camera]"
-      ></a-plane>
-
       <!-- AR Target -->
       <a-entity id="target0" mindar-image-target="targetIndex: 0">
-
         <!-- Video plane attached to target -->
         <a-plane
           id="videoPlane"
@@ -52,7 +40,7 @@
       const targetEl = document.getElementById("target0");
       const videoA = document.getElementById("videoA");
       const videoB = document.getElementById("videoB");
-      const fullWhiteBg = document.getElementById("fullWhiteBg");
+      const sceneEl = document.querySelector("a-scene");
 
       const TOTAL_VIDEOS = 60;
       let lastIndex = -1;
@@ -103,7 +91,10 @@
 
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
-        fullWhiteBg.setAttribute("visible", "true"); // show full-screen white
+
+        // Set background to white when target is found
+        sceneEl.object3D.background = new THREE.Color(0xffffff);
+
         preloadVideo(videoA);
         preloadVideo(videoB);
         activeVideo.play();
@@ -112,7 +103,10 @@
 
       targetEl.addEventListener("targetLost", () => {
         isActive = false;
-        fullWhiteBg.setAttribute("visible", "false"); // hide full-screen white
+
+        // Restore camera feed
+        sceneEl.object3D.background = null;
+
         activeVideo.pause();
         nextVideo.pause();
       });
