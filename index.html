@@ -62,17 +62,17 @@
           .sort((a, b) => a.sort - b.sort)
           .map(({ value }) => value);
 
-        // Take the first 3 clips from the shuffled array
+        // Take exactly 3 clips from the shuffled array
         let newSequence = shuffled.slice(0, 3);
 
         // Avoid repeating the exact same sequence as last loop
         if (arraysEqual(newSequence, lastMiddleSequence)) {
-          // Swap two elements if it's the same as last time
           [newSequence[0], newSequence[1]] = [newSequence[1], newSequence[0]];
         }
 
         lastMiddleSequence = [...newSequence];
-        middleIndexes = newSequence;
+        middleIndexes = newSequence; // now contains exactly 3 clips
+        middlePlayedCount = 0;       // reset counter for this new set
       }
 
       // Helper to compare arrays
@@ -99,14 +99,13 @@
           playClip(0);
           middlePlayedCount++;
         } else if (middlePlayedCount <= 3) {
-          // Play 3 random middle clips
+          // Play one of the 3 middle clips
           playClip(middleIndexes[middlePlayedCount - 1]);
           middlePlayedCount++;
         } else {
           // Play clip 7 last
           playClip(6);
-          middlePlayedCount = 0; // reset for next loop
-          pickMiddleClips();     // reshuffle middle clips avoiding previous sequence
+          pickMiddleClips(); // reshuffle middle clips for next loop
         }
       }
 
@@ -118,7 +117,6 @@
 
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
-        middlePlayedCount = 0;
         pickMiddleClips();
         playNext();
       });
