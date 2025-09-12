@@ -55,19 +55,19 @@
         videoEl.play();
       }
 
-      // When target is found, start first video
+      // Start playback when target is found
       targetEl.addEventListener("targetFound", () => {
         playNextVideo();
       });
 
-      // When current video ends, play another random video
+      // When current video ends, play a different random video
       videoEl.addEventListener("ended", () => {
         if (targetEl.components["mindar-image-target"].data.found) {
           playNextVideo();
         }
       });
 
-      // Pause video when target lost
+      // Pause video when target is lost
       targetEl.addEventListener("targetLost", () => {
         videoEl.pause();
       });
