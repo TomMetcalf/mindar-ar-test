@@ -5,35 +5,32 @@
     <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
-      #startAR {
+      #audioToggle {
         position: fixed;
-        top: 40%;
-        left: 50%;
-        transform: translate(-50%, -50%);
+        top: 10%;
+        right: 5%;
         z-index: 10;
-        padding: 1em 2em;
-        font-size: 18px;
+        padding: 0.5em 1em;
+        font-size: 16px;
         cursor: pointer;
       }
     </style>
   </head>
   <body>
-    <!-- Start button for iOS autoplay -->
-    <button id="startAR">Start AR</button>
+    <!-- Audio toggle button -->
+    <button id="audioToggle">🔊 Play Audio</button>
 
     <!-- Hidden videos -->
-    <video id="videoA" style="display:none" autoplay muted playsinline></video>
-    <video id="videoB" style="display:none" autoplay muted playsinline></video>
+    <video id="videoA" style="display:none" muted playsinline></video>
+    <video id="videoB" style="display:none" muted playsinline></video>
 
     <!-- Background audio -->
     <audio id="bgAudio" loop playsinline>
       <source src="./assets/audio/background.mp3" type="audio/mpeg">
     </audio>
 
-    <!-- AR scene hidden until user taps start -->
+    <!-- AR scene loads immediately -->
     <a-scene
-      id="arScene"
-      style="display:none"
       mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
@@ -46,7 +43,6 @@
 
       <!-- AR Target -->
       <a-entity id="target0" mindar-image-target="targetIndex: 0">
-
         <!-- Video plane attached to target -->
         <a-plane
           id="videoPlane"
@@ -60,13 +56,13 @@
     </a-scene>
 
     <script>
-      const startBtn = document.getElementById("startAR");
-      const sceneEl = document.getElementById("arScene");
-      const bgAudio = document.getElementById("bgAudio");
       const videoPlane = document.getElementById("videoPlane");
       const targetEl = document.getElementById("target0");
       const videoA = document.getElementById("videoA");
       const videoB = document.getElementById("videoB");
+
+      const bgAudio = document.getElementById("bgAudio");
+      const audioToggleBtn = document.getElementById("audioToggle");
 
       const TOTAL_VIDEOS = 60;
       let lastIndex = -1;
@@ -74,6 +70,7 @@
       let nextVideo = videoB;
       let isActive = false;
 
+      // Pick random video index, avoiding repeat
       function pickRandomIndex() {
         let idx;
         do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
@@ -81,6 +78,7 @@
         return idx;
       }
 
+      // Preload video
       function preloadVideo(videoEl) {
         const idx = pickRandomIndex();
         videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
@@ -88,19 +86,13 @@
         videoEl.load();
       }
 
+      // Swap video with random horizontal flip
       function swapVideo() {
-        // Random horizontal flip
         const flip = Math.random() < 0.5;
         videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
-
-        // Swap to next preloaded video
         videoPlane.setAttribute("material", "src", nextVideo);
         nextVideo.play();
-
-        // Swap references
         [activeVideo, nextVideo] = [nextVideo, activeVideo];
-
-        // Preload the next video
         preloadVideo(nextVideo);
       }
 
@@ -115,38 +107,34 @@
         requestAnimationFrame(monitorVideo);
       }
 
-      // Start AR on user interaction (iOS-safe)
-      startBtn.addEventListener("click", async () => {
-        startBtn.style.display = "none";
-        sceneEl.style.display = "block";
-
-        // iOS workaround: unlock audio context
-        try {
-          await bgAudio.play(); // user gesture allows playback
-        } catch (err) {
-          console.log("Audio failed to play:", err);
+      // Audio toggle button
+      audioToggleBtn.addEventListener("click", async () => {
+        if (bgAudio.paused) {
+          try {
+            await bgAudio.play();
+            audioToggleBtn.textContent = "🔇 Pause Audio";
+          } catch (err) {
+            console.log("Audio play failed:", err);
+          }
+        } else {
+          bgAudio.pause();
+          audioToggleBtn.textContent = "🔊 Play Audio";
         }
-
-        monitorVideo();
       });
 
+      // Target found/lost
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
-
-        // Set full white background
-        sceneEl.object3D.background = new THREE.Color(0xffffff);
-
+        document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
         preloadVideo(videoA);
         preloadVideo(videoB);
         activeVideo.play();
+        monitorVideo();
       });
 
       targetEl.addEventListener("targetLost", () => {
         isActive = false;
-
-        // Restore camera feed
-        sceneEl.object3D.background = null;
-
+        document.querySelector("a-scene").object3D.background = null;
         activeVideo.pause();
         nextVideo.pause();
       });
