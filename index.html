@@ -21,19 +21,21 @@
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
+      <!-- Full-screen white plane (initially hidden) -->
+      <a-plane
+        id="fullWhiteBg"
+        position="0 0 -0.5"
+        width="10"
+        height="10"
+        color="#ffffff"
+        visible="false"
+        look-at="[camera]"
+      ></a-plane>
+
+      <!-- AR Target -->
       <a-entity id="target0" mindar-image-target="targetIndex: 0">
 
-        <!-- White background plane hidden initially -->
-        <a-plane
-          id="whiteBg"
-          width="1.2"
-          height="1.2"
-          position="0 0 -0.01"
-          color="#ffffff"
-          visible="false"
-        ></a-plane>
-
-        <!-- Video plane -->
+        <!-- Video plane attached to target -->
         <a-plane
           id="videoPlane"
           width="1.2"
@@ -50,9 +52,9 @@
       const targetEl = document.getElementById("target0");
       const videoA = document.getElementById("videoA");
       const videoB = document.getElementById("videoB");
-      const whiteBg = document.getElementById("whiteBg");
+      const fullWhiteBg = document.getElementById("fullWhiteBg");
 
-      const TOTAL_VIDEOS = 60; // Number of video files
+      const TOTAL_VIDEOS = 60;
       let lastIndex = -1;
       let activeVideo = videoA;
       let nextVideo = videoB;
@@ -73,7 +75,7 @@
       }
 
       function swapVideo() {
-        // Random horizontal flip (50% chance)
+        // Random horizontal flip
         const flip = Math.random() < 0.5;
         videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
 
@@ -101,7 +103,7 @@
 
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
-        whiteBg.setAttribute("visible", "true"); // show white plane
+        fullWhiteBg.setAttribute("visible", "true"); // show full-screen white
         preloadVideo(videoA);
         preloadVideo(videoB);
         activeVideo.play();
@@ -110,7 +112,7 @@
 
       targetEl.addEventListener("targetLost", () => {
         isActive = false;
-        whiteBg.setAttribute("visible", "false"); // hide white plane
+        fullWhiteBg.setAttribute("visible", "false"); // hide full-screen white
         activeVideo.pause();
         nextVideo.pause();
       });
