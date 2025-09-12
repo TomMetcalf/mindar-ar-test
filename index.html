@@ -4,18 +4,36 @@
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+    <style>
+      #startAR {
+        position: fixed;
+        top: 40%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10;
+        padding: 1em 2em;
+        font-size: 18px;
+        cursor: pointer;
+      }
+    </style>
   </head>
   <body>
+    <!-- Start button for iOS autoplay -->
+    <button id="startAR">Start AR</button>
+
     <!-- Hidden videos -->
     <video id="videoA" style="display:none" autoplay muted playsinline></video>
     <video id="videoB" style="display:none" autoplay muted playsinline></video>
 
     <!-- Background audio -->
     <audio id="bgAudio" loop>
-      <source src="./assets/audio/the-flow.mp3" type="audio/mpeg">
+      <source src="./assets/audio/background.mp3" type="audio/mpeg">
     </audio>
 
+    <!-- AR scene hidden until user taps start -->
     <a-scene
+      id="arScene"
+      style="display:none"
       mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
@@ -42,12 +60,13 @@
     </a-scene>
 
     <script>
+      const startBtn = document.getElementById("startAR");
+      const sceneEl = document.getElementById("arScene");
+      const bgAudio = document.getElementById("bgAudio");
       const videoPlane = document.getElementById("videoPlane");
       const targetEl = document.getElementById("target0");
       const videoA = document.getElementById("videoA");
       const videoB = document.getElementById("videoB");
-      const sceneEl = document.querySelector("a-scene");
-      const bgAudio = document.getElementById("bgAudio");
 
       const TOTAL_VIDEOS = 60;
       let lastIndex = -1;
@@ -96,19 +115,26 @@
         requestAnimationFrame(monitorVideo);
       }
 
+      // Start AR on user interaction
+      startBtn.addEventListener("click", async () => {
+        startBtn.style.display = "none";
+        sceneEl.style.display = "block";
+
+        // Play background audio (allowed by user gesture)
+        try { await bgAudio.play(); } catch(e) { console.log("Audio play failed", e); }
+
+        monitorVideo();
+      });
+
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
 
-        // Set background to white when target is found
+        // Set full white background
         sceneEl.object3D.background = new THREE.Color(0xffffff);
-
-        // Play background audio
-        if(bgAudio.paused) bgAudio.play();
 
         preloadVideo(videoA);
         preloadVideo(videoB);
         activeVideo.play();
-        monitorVideo();
       });
 
       targetEl.addEventListener("targetLost", () => {
@@ -116,9 +142,6 @@
 
         // Restore camera feed
         sceneEl.object3D.background = null;
-
-        // Pause background audio
-        bgAudio.pause();
 
         activeVideo.pause();
         nextVideo.pause();
