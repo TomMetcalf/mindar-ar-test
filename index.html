@@ -33,7 +33,7 @@
     <video id="videoA" style="display:none" muted playsinline></video>
     <video id="videoB" style="display:none" muted playsinline></video>
 
-    <audio id="bgAudio" loop playsinline autoplay>
+    <audio id="bgAudio" loop playsinline>
       <source src="./assets/audio/background.mp3" type="audio/mpeg">
     </audio>
 
@@ -77,6 +77,7 @@
       let activeVideo = videoA;
       let nextVideo = videoB;
       let isActive = false;
+      let audioWasPlaying = false; // track if user had audio playing
 
       function pickRandomIndex() {
         let idx;
@@ -116,12 +117,15 @@
         startBtn.style.display = "none";
         sceneEl.style.display = "block";
 
-        // Try to autoplay audio
-        try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
-
+        // Attempt autoplay (works on desktop)
+        try {
+          await bgAudio.play();
+          audioToggleBtn.textContent = "🔇 Pause Audio";
+        } catch {}
         monitorVideo();
       });
 
+      // Manual audio toggle
       audioToggleBtn.addEventListener("click", async () => {
         try {
           if (bgAudio.paused) {
@@ -136,12 +140,18 @@
         }
       });
 
+      // AR target events
       targetEl.addEventListener("targetFound", () => {
         isActive = true;
         document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
         preloadVideo(videoA);
         preloadVideo(videoB);
         activeVideo.play();
+
+        // Resume audio if user had it on
+        if (audioWasPlaying) {
+          bgAudio.play().catch(() => {});
+        }
       });
 
       targetEl.addEventListener("targetLost", () => {
@@ -149,6 +159,10 @@
         document.querySelector("a-scene").object3D.background = null;
         activeVideo.pause();
         nextVideo.pause();
+
+        // Auto-pause audio and remember state
+        audioWasPlaying = !bgAudio.paused;
+        if (!bgAudio.paused) bgAudio.pause();
       });
     </script>
   </body>
