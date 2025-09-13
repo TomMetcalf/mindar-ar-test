@@ -6,14 +6,26 @@
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
     body { margin: 0; overflow: hidden; }
+    
+    /* Initial white overlay */
     #whiteOverlay {
       position: fixed;
       top: 0; left: 0;
       width: 100%; height: 100%;
       background-color: white;
       z-index: 10;
-      display: block; /* visible at page load */
     }
+
+    /* White background behind video */
+    #videoBackground {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: white;
+      z-index: 0;
+      display: none;
+    }
+
     #startAR {
       position: fixed;
       top: 40%;
@@ -24,6 +36,7 @@
       font-size: 18px;
       cursor: pointer;
     }
+
     #audioToggle {
       position: fixed;
       bottom: 5%;
@@ -34,12 +47,29 @@
       cursor: pointer;
       display: none;
     }
+
+    #stillWatchingBtn {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 30;
+      padding: 1em 2em;
+      font-size: 18px;
+      cursor: pointer;
+      display: none;
+      background-color: white;
+      border: 2px solid black;
+    }
   </style>
 </head>
 <body>
   <div id="whiteOverlay"></div>
+  <div id="videoBackground"></div>
+
   <button id="startAR">Start AR</button>
   <button id="audioToggle">🔊 Play Audio</button>
+  <button id="stillWatchingBtn">Continue Watching</button>
 
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
@@ -58,6 +88,7 @@
     look-at="[camera]"
   >
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
       <a-plane
         id="videoPlane"
@@ -72,8 +103,10 @@
 
   <script>
     const whiteOverlay = document.getElementById("whiteOverlay");
+    const videoBackground = document.getElementById("videoBackground");
     const startBtn = document.getElementById("startAR");
     const audioToggleBtn = document.getElementById("audioToggle");
+    const stillWatchingBtn = document.getElementById("stillWatchingBtn");
     const videoPlane = document.getElementById("videoPlane");
     const targetEl = document.getElementById("target0");
     const videoA = document.getElementById("videoA");
@@ -85,7 +118,8 @@
     let activeVideo = videoA;
     let nextVideo = videoB;
     let isActive = false;
-    let userAudioPreference = localStorage.getItem("audioPref") !== "false";
+    let userAudioPreference = true;
+    let loopCount = 0;
 
     function pickRandomIndex() {
       let idx;
@@ -108,6 +142,16 @@
       nextVideo.play();
       [activeVideo, nextVideo] = [nextVideo, activeVideo];
       preloadVideo(nextVideo);
+
+      loopCount++;
+      if(loopCount % 10 === 0) {
+        // Show still watching button
+        stillWatchingBtn.style.display = "block";
+        isActive = false;
+        activeVideo.pause();
+        nextVideo.pause();
+        if(!bgAudio.paused) bgAudio.pause();
+      }
     }
 
     function monitorVideo() {
@@ -121,9 +165,8 @@
       requestAnimationFrame(monitorVideo);
     }
 
-    // Start AR button click
     startBtn.addEventListener("click", () => {
-      whiteOverlay.style.display = "none"; // hide overlay before AR
+      whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
       monitorVideo();
     });
@@ -139,41 +182,35 @@
           audioToggleBtn.textContent = "🔊 Play Audio";
           userAudioPreference = false;
         }
-        localStorage.setItem("audioPref", userAudioPreference);
-      } catch (err) { console.log(err); }
+      } catch (err) { console.log("Audio play failed:", err); }
+    });
+
+    stillWatchingBtn.addEventListener("click", () => {
+      stillWatchingBtn.style.display = "none";
+      isActive = true;
+      activeVideo.play();
+      if(userAudioPreference) bgAudio.play();
     });
 
     targetEl.addEventListener("targetFound", async () => {
       isActive = true;
-      whiteOverlay.style.display = "block"; // show white background behind video
-      audioToggleBtn.style.display = "block"; // show audio button after target found
+      videoBackground.style.display = "block"; // show white behind video
+      audioToggleBtn.style.display = "block";
       preloadVideo(activeVideo);
       preloadVideo(nextVideo);
       activeVideo.play();
-      if (userAudioPreference) {
-        try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
+      if(userAudioPreference){
+        try{ await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch{}
       }
     });
 
     targetEl.addEventListener("targetLost", () => {
       isActive = false;
-      whiteOverlay.style.display = "none"; // hide white overlay, show camera feed
+      videoBackground.style.display = "none";
+      audioToggleBtn.style.display = "none";
       activeVideo.pause();
       nextVideo.pause();
-      audioToggleBtn.style.display = "none";
-      if (!bgAudio.paused) bgAudio.pause();
-    });
-
-    // Reset on lock screen or tab change
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden) {
-        isActive = false;
-        activeVideo.pause();
-        nextVideo.pause();
-        bgAudio.pause();
-        whiteOverlay.style.display = "block"; // revert to initial white background
-        audioToggleBtn.style.display = "none";
-      }
+      if(!bgAudio.paused) bgAudio.pause();
     });
   </script>
 </body>
