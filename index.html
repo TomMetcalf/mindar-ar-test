@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -5,7 +6,7 @@
   <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; }
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
     #whiteOverlay {
       position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
@@ -28,13 +29,30 @@
       cursor: pointer;
       display: none;
     }
-    #moveAwayMsg {
-      position: fixed; top: 50%; left: 50%;
+    #stillWatchingContainer {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background-color: white;
+      z-index: 30;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    #stillWatchingBtn {
+      padding: 1em 2em;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    #restartARMsg {
+      position: fixed;
+      top: 50%; left: 50%;
       transform: translate(-50%, -50%);
       background: rgba(255,255,255,0.95);
       padding: 1em 2em;
       font-size: 18px;
-      z-index: 30;
+      text-align: center;
+      font-family: sans-serif;
+      cursor: pointer;
+      z-index: 40;
       display: none;
     }
     #arScene { display: block; }
@@ -44,7 +62,12 @@
   <div id="whiteOverlay"></div>
   <button id="startAR">Start AR</button>
   <button id="audioToggle">🔊 Play Audio</button>
-  <div id="moveAwayMsg">Move away from target to restart video</div>
+
+  <div id="stillWatchingContainer">
+    <button id="stillWatchingBtn">Still Watching?</button>
+  </div>
+
+  <div id="restartARMsg">Restart AR</div>
 
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
@@ -80,7 +103,9 @@
     const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
     const audioToggleBtn = document.getElementById("audioToggle");
-    const moveAwayMsg = document.getElementById("moveAwayMsg");
+    const stillWatchingContainer = document.getElementById("stillWatchingContainer");
+    const stillWatchingBtn = document.getElementById("stillWatchingBtn");
+    const restartARMsg = document.getElementById("restartARMsg");
 
     const videoPlane = document.getElementById("videoPlane");
     const targetEl = document.getElementById("target0");
@@ -96,6 +121,9 @@
     let startClicked = false;
     let loopCount = 0;
     const LOOP_LIMIT = 10;
+    let wasHidden = false;
+
+    // Audio preference
     let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
 
     function pickRandomIndex() {
@@ -121,9 +149,7 @@
       preloadVideo(nextVideo);
 
       loopCount++;
-      if (loopCount >= LOOP_LIMIT) {
-        showStillWatching();
-      }
+      if (loopCount >= LOOP_LIMIT) showStillWatching();
     }
 
     function monitorVideo() {
@@ -139,11 +165,18 @@
       nextVideo.pause();
       bgAudio.pause();
       audioToggleBtn.style.display = "none";
-      moveAwayMsg.style.display = "flex";
-      moveAwayMsg.textContent = "Still Watching?";
+      stillWatchingContainer.style.display = "flex";
     }
 
-    // 🔑 Reusable targetFound handler
+    stillWatchingBtn.addEventListener("click", () => {
+      stillWatchingContainer.style.display = "none";
+      loopCount = 0;
+      if (isActive) {
+        activeVideo.play();
+        if (userAudioPreference) bgAudio.play();
+      }
+    });
+
     async function handleTargetFound() {
       if (!startClicked) return;
       isActive = true;
@@ -156,7 +189,6 @@
         try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
       }
       audioToggleBtn.style.display = "block";
-      moveAwayMsg.style.display = "none"; // hide message once normal tracking runs
     }
 
     startBtn.addEventListener("click", () => {
@@ -166,9 +198,21 @@
       videoPlane.setAttribute("visible", false);
       monitorVideo();
 
-      // Show message if already locked on target
-      moveAwayMsg.style.display = "block";
-      moveAwayMsg.textContent = "Move away from target to restart video";
+      const mindarComponent = document.querySelector("a-scene").components["mindar-image"];
+      const targetVisible = mindarComponent?.controller?.imageTrackers?.[0]?.targetVisible;
+
+      if (wasHidden && targetVisible) {
+        restartARMsg.style.display = "block";
+        wasHidden = false;
+        return;
+      }
+
+      handleTargetFound();
+    });
+
+    restartARMsg.addEventListener("click", () => {
+      restartARMsg.style.display = "none";
+      handleTargetFound();
     });
 
     audioToggleBtn.addEventListener("click", async () => {
@@ -183,9 +227,7 @@
           userAudioPreference = false;
         }
         localStorage.setItem("userAudioPref", userAudioPreference);
-      } catch (err) {
-        console.log("Audio play failed:", err);
-      }
+      } catch (err) { console.log("Audio play failed:", err); }
     });
 
     targetEl.addEventListener("targetFound", handleTargetFound);
@@ -198,19 +240,19 @@
       nextVideo.pause();
       if (!bgAudio.paused) bgAudio.pause();
       audioToggleBtn.style.display = "none";
-      moveAwayMsg.style.display = "none";
     });
 
-    // Reset everything on screen lock / visibility change
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
+        wasHidden = true;
         isActive = false;
         startClicked = false;
         activeVideo.pause();
         nextVideo.pause();
         bgAudio.pause();
         audioToggleBtn.style.display = "none";
-        moveAwayMsg.style.display = "none";
+        stillWatchingContainer.style.display = "none";
+        restartARMsg.style.display = "none";
         whiteOverlay.style.display = "block";
         startBtn.style.display = "block";
         videoPlane.setAttribute("visible", false);
