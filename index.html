@@ -211,20 +211,28 @@
       audioToggleBtn.style.display = "none";
     });
 
-    // Pause everything on tab switch / screen lock
+    // Pause/resume on tab switch / screen lock
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
+        // Pause everything
         isActive = false;
-        startClicked = false;
         activeVideo.pause();
         nextVideo.pause();
         bgAudio.pause();
         audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
+        videoPlane.setAttribute("visible", false);
+      } else {
+        // When coming back
         whiteOverlay.style.display = "block";
         startBtn.style.display = "block";
-        videoPlane.setAttribute("visible", false);
-        targetCurrentlyVisible = false;
+
+        // 🔑 Resume automatically if target is still visible
+        if (startClicked && targetCurrentlyVisible) {
+          whiteOverlay.style.display = "none";
+          startBtn.style.display = "none";
+          handleTargetFound();
+        }
       }
     });
   </script>
