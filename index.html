@@ -6,12 +6,14 @@
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
     body { margin: 0; overflow: hidden; }
+
     #whiteOverlay {
       position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
       background-color: white;
       z-index: 10;
     }
+
     #startAR {
       position: fixed; top: 40%; left: 50%;
       transform: translate(-50%, -50%);
@@ -20,14 +22,16 @@
       font-size: 18px;
       cursor: pointer;
     }
+
     #audioToggle {
       position: fixed; bottom: 5%; right: 5%;
       z-index: 20;
       padding: 0.5em 1em;
       font-size: 16px;
       cursor: pointer;
-      display: none; /* hidden initially */
+      display: none;
     }
+
     #stillWatchingContainer {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
@@ -37,11 +41,13 @@
       align-items: center;
       justify-content: center;
     }
+
     #stillWatchingBtn {
       padding: 1em 2em;
       font-size: 18px;
       cursor: pointer;
     }
+
     #moveAwayMsg {
       position: fixed;
       top: 50%; left: 50%;
@@ -49,12 +55,13 @@
       background: white;
       padding: 1em 2em;
       font-size: 18px;
-      z-index: 25;
+      z-index: 40; /* above whiteOverlay */
       display: none;
       border: 2px solid black;
       border-radius: 8px;
       text-align: center;
     }
+
     #arScene { display: block; }
   </style>
 </head>
@@ -181,6 +188,7 @@
       }
     });
 
+    // 🔑 Reusable targetFound handler
     async function handleTargetFound() {
       if (!startClicked) return;
       isActive = true;
@@ -203,14 +211,13 @@
       videoPlane.setAttribute("visible", false);
       monitorVideo();
 
-      // ✅ Check if target is already visible
+      // ✅ Check if target is already visible, trigger manually
       const mindarComponent = document.querySelector("a-scene").components["mindar-image"];
       if (mindarComponent && mindarComponent.controller) {
         const trackers = mindarComponent.controller.imageTrackers;
         if (trackers && trackers[0] && trackers[0].targetVisible) {
-          // Show message instead of forcing playback
+          // Show move away message instead of freezing
           moveAwayMsg.style.display = "block";
-          return;
         }
       }
     });
@@ -234,10 +241,14 @@
     });
 
     // Target events
-    targetEl.addEventListener("targetFound", handleTargetFound);
+    targetEl.addEventListener("targetFound", async () => {
+      if (moveAwayMsg.style.display === "block") {
+        moveAwayMsg.style.display = "none";
+      }
+      handleTargetFound();
+    });
 
     targetEl.addEventListener("targetLost", () => {
-      moveAwayMsg.style.display = "none"; // Hide the warning
       isActive = false;
       videoPlane.setAttribute("visible", false);
       document.querySelector("a-scene").object3D.background = null;
