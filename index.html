@@ -6,34 +6,45 @@
   <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
-    body { margin:0; overflow:hidden; }
+    body { margin: 0; overflow: hidden; }
     #whiteOverlay {
-      position: fixed; top:0; left:0;
+      position: fixed;
+      top:0; left:0;
       width:100%; height:100%;
-      background:white; z-index:10;
+      background-color:white;
+      z-index:10;
     }
     #startAR {
       position: fixed;
-      top:40%; left:50%;
+      top:40%;
+      left:50%;
       transform: translate(-50%, -50%);
-      z-index:20; padding:1em 2em;
-      font-size:18px; cursor:pointer;
+      z-index:20;
+      padding:1em 2em;
+      font-size:18px;
+      cursor:pointer;
     }
     #audioToggle {
       position: fixed;
-      bottom:5%; right:5%;
-      z-index:20; padding:0.5em 1em;
-      font-size:16px; cursor:pointer;
+      bottom:5%;
+      right:5%;
+      z-index:20;
+      padding:0.5em 1em;
+      font-size:16px;
+      cursor:pointer;
       display:none;
     }
     #stillWatchingBtn {
       position: fixed;
-      top:50%; left:50%;
+      top:50%;
+      left:50%;
       transform: translate(-50%, -50%);
-      z-index:30; padding:1em 2em;
-      font-size:18px; cursor:pointer;
+      z-index:30;
+      padding:1em 2em;
+      font-size:18px;
+      cursor:pointer;
       display:none;
-      background:white; border:none;
+      background-color:white;
     }
   </style>
 </head>
@@ -60,150 +71,153 @@
     look-at="[camera]"
   >
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-    <a-entity id="target0" mindar-image-target="targetIndex:0">
-      <a-plane id="videoPlane" width="1.2" height="1.2" position="0 0 0"
-        look-at="[camera]" material="shader: flat; src: #videoA">
-      </a-plane>
+    <a-entity id="target0" mindar-image-target="targetIndex: 0">
+      <a-plane id="videoPlane" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" material="shader: flat; src: #videoA"></a-plane>
     </a-entity>
   </a-scene>
 
-<script>
-const whiteOverlay = document.getElementById("whiteOverlay");
-const startBtn = document.getElementById("startAR");
-const audioToggleBtn = document.getElementById("audioToggle");
-const stillWatchingBtn = document.getElementById("stillWatchingBtn");
-const videoPlane = document.getElementById("videoPlane");
-const targetEl = document.getElementById("target0");
-const videoA = document.getElementById("videoA");
-const videoB = document.getElementById("videoB");
-const bgAudio = document.getElementById("bgAudio");
+  <script>
+    const whiteOverlay = document.getElementById("whiteOverlay");
+    const startBtn = document.getElementById("startAR");
+    const audioToggleBtn = document.getElementById("audioToggle");
+    const stillWatchingBtn = document.getElementById("stillWatchingBtn");
+    const videoPlane = document.getElementById("videoPlane");
+    const targetEl = document.getElementById("target0");
+    const videoA = document.getElementById("videoA");
+    const videoB = document.getElementById("videoB");
+    const bgAudio = document.getElementById("bgAudio");
 
-const TOTAL_VIDEOS = 60;
-let lastIndex = -1;
-let activeVideo = videoA;
-let nextVideo = videoB;
-let isActive = false;
-let userAudioPreference = localStorage.getItem("audioPref") === "false" ? false : true;
-let loopCount = 0;
-let loopsBeforeStillWatching = 10;
+    const TOTAL_VIDEOS = 60;
+    let lastIndex = -1;
+    let activeVideo = videoA;
+    let nextVideo = videoB;
+    let isActive = false;
+    let loopCount = 0;
+    const MAX_LOOPS_BEFORE_ALERT = 10;
+    let startClicked = false;
 
-function pickRandomIndex() {
-  let idx;
-  do { idx = Math.floor(Math.random()*TOTAL_VIDEOS); } while(idx===lastIndex);
-  lastIndex=idx;
-  return idx;
-}
+    // Audio preference
+    let userAudioPreference = localStorage.getItem("audioPreference") !== "false";
 
-function preloadVideo(videoEl){
-  const idx = pickRandomIndex();
-  videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
-  videoEl.currentTime=0;
-  videoEl.load();
-}
+    // Helper to pick random index
+    function pickRandomIndex() {
+      let idx;
+      do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while(idx===lastIndex);
+      lastIndex = idx;
+      return idx;
+    }
 
-function swapVideo(){
-  const flip = Math.random()<0.5;
-  videoPlane.setAttribute("scale", flip? "-1 1 1":"1 1 1");
-  videoPlane.setAttribute("material","src",nextVideo);
-  nextVideo.play();
-  [activeVideo, nextVideo] = [nextVideo, activeVideo];
-  preloadVideo(nextVideo);
-  loopCount++;
-  if(loopCount % loopsBeforeStillWatching ===0){
-    showStillWatching();
-  }
-}
+    function preloadVideo(videoEl) {
+      const idx = pickRandomIndex();
+      videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
+      videoEl.currentTime = 0;
+      videoEl.load();
+    }
 
-function monitorVideo(){
-  if(isActive && activeVideo.duration>0 && activeVideo.currentTime >= activeVideo.duration-0.05){
-    swapVideo();
-  }
-  requestAnimationFrame(monitorVideo);
-}
+    function swapVideo() {
+      const flip = Math.random()<0.5;
+      videoPlane.setAttribute("scale", flip?"-1 1 1":"1 1 1");
+      videoPlane.setAttribute("material","src", nextVideo);
+      nextVideo.play();
+      [activeVideo,nextVideo] = [nextVideo,activeVideo];
+      preloadVideo(nextVideo);
 
-function showStillWatching(){
-  isActive=false;
-  activeVideo.pause();
-  nextVideo.pause();
-  if(!bgAudio.paused) bgAudio.pause();
-  stillWatchingBtn.style.display="block";
-  whiteOverlay.style.display="block";
-}
+      loopCount++;
+      if(loopCount>=MAX_LOOPS_BEFORE_ALERT) {
+        pauseForStillWatching();
+      }
+    }
 
-stillWatchingBtn.addEventListener("click", ()=>{
-  isActive=true;
-  stillWatchingBtn.style.display="none";
-  whiteOverlay.style.display="none";
-  activeVideo.play();
-  if(userAudioPreference) bgAudio.play();
-});
+    function monitorVideo() {
+      if(isActive && activeVideo.duration>0 && activeVideo.currentTime>=activeVideo.duration-0.05){
+        swapVideo();
+      }
+      requestAnimationFrame(monitorVideo);
+    }
 
-startBtn.addEventListener("click",()=>{
-  whiteOverlay.style.display="none";
-  startBtn.style.display="none";
-  monitorVideo();
-});
+    function pauseForStillWatching() {
+      isActive = false;
+      activeVideo.pause();
+      nextVideo.pause();
+      if(!bgAudio.paused) bgAudio.pause();
+      stillWatchingBtn.style.display = "block";
+    }
 
-audioToggleBtn.addEventListener("click", async ()=>{
-  try{
-    if(bgAudio.paused){
-      await bgAudio.play();
-      audioToggleBtn.textContent="🔇 Pause Audio";
-      userAudioPreference=true;
-    } else {
+    function resetAR() {
+      isActive = false;
+      loopCount = 0;
+      activeVideo.pause();
+      nextVideo.pause();
       bgAudio.pause();
-      audioToggleBtn.textContent="🔊 Play Audio";
-      userAudioPreference=false;
+      stillWatchingBtn.style.display = "none";
+      audioToggleBtn.style.display = "none";
+      whiteOverlay.style.display = "block";
     }
-    localStorage.setItem("audioPref", userAudioPreference);
-  } catch(e){}
-});
 
-// Pause/resume on tab visibility
-document.addEventListener("visibilitychange", ()=>{
-  if(document.hidden){
-    isActive=false;
-    activeVideo.pause();
-    nextVideo.pause();
-    if(!bgAudio.paused) bgAudio.pause();
-  }
-});
+    startBtn.addEventListener("click", () => {
+      startClicked = true;
+      startBtn.style.display = "none";
+      whiteOverlay.style.display = "none";
+      preloadVideo(videoA);
+      preloadVideo(videoB);
 
-let startClicked=false;
+      // If target is already visible
+      const targetComp = targetEl.components["mindar-image-target"];
+      if(targetComp.isTargetVisible){
+        isActive = true;
+        activeVideo.play();
+        if(userAudioPreference) bgAudio.play();
+        audioToggleBtn.style.display = "block";
+      }
 
-targetEl.addEventListener("targetFound", async ()=>{
-  isActive=true;
-  document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
-  preloadVideo(videoA);
-  preloadVideo(videoB);
-  if(startClicked){
-    activeVideo.play();
-    if(userAudioPreference){
-      try{ await bgAudio.play(); audioToggleBtn.textContent="🔇 Pause Audio"; } catch{}
-    }
-    audioToggleBtn.style.display="block";
-  }
-});
+      monitorVideo();
+    });
 
-targetEl.addEventListener("targetLost", ()=>{
-  isActive=false;
-  document.querySelector("a-scene").object3D.background=null;
-  activeVideo.pause();
-  nextVideo.pause();
-  audioToggleBtn.style.display="none";
-  if(!bgAudio.paused) bgAudio.pause();
-});
+    audioToggleBtn.addEventListener("click", async()=>{
+      if(bgAudio.paused){
+        await bgAudio.play();
+        audioToggleBtn.textContent="🔇 Pause Audio";
+        userAudioPreference=true;
+      } else {
+        bgAudio.pause();
+        audioToggleBtn.textContent="🔊 Play Audio";
+        userAudioPreference=false;
+      }
+      localStorage.setItem("audioPreference",userAudioPreference);
+    });
 
-// Ensure proper start AR behavior if target is already visible
-startBtn.addEventListener("click", ()=>{
-  startClicked=true;
-  whiteOverlay.style.display="none";
-  startBtn.style.display="none";
-  if(targetEl.components["mindar-image-target"].isTargetVisible){
-    targetEl.emit("targetFound");
-  }
-  monitorVideo();
-});
-</script>
+    stillWatchingBtn.addEventListener("click", () => {
+      loopCount = 0;
+      isActive = true;
+      stillWatchingBtn.style.display = "none";
+      activeVideo.play();
+      if(userAudioPreference) bgAudio.play();
+    });
+
+    targetEl.addEventListener("targetFound", async () => {
+      isActive = true;
+      videoPlane.setAttribute("visible", true);
+      if(startClicked) audioToggleBtn.style.display="block";
+      document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
+      if(activeVideo.src) activeVideo.play();
+      if(userAudioPreference && startClicked) bgAudio.play();
+    });
+
+    targetEl.addEventListener("targetLost", () => {
+      isActive = false;
+      videoPlane.setAttribute("visible", false);
+      audioToggleBtn.style.display="none";
+      document.querySelector("a-scene").object3D.background = null;
+      activeVideo.pause();
+      nextVideo.pause();
+      bgAudio.pause();
+    });
+
+    // Reset AR on tab hidden / lock
+    document.addEventListener("visibilitychange", ()=>{
+      if(document.hidden) resetAR();
+    });
+
+  </script>
 </body>
 </html>
