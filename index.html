@@ -6,14 +6,14 @@
   <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    body { margin: 0; overflow: hidden; }
     #whiteOverlay {
       position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
       background-color: white;
       z-index: 10;
     }
-    #startAR, #restartAR {
+    #startAR {
       position: fixed; top: 40%; left: 50%;
       transform: translate(-50%, -50%);
       z-index: 20;
@@ -21,39 +21,20 @@
       font-size: 18px;
       cursor: pointer;
     }
-    #restartAR { display: none; }
     #audioToggle {
       position: fixed; bottom: 5%; right: 5%;
       z-index: 20;
       padding: 0.5em 1em;
       font-size: 16px;
       cursor: pointer;
-      display: none;
-    }
-    #stillWatchingContainer {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background-color: white;
-      z-index: 30;
-      display: none;
-      align-items: center;
-      justify-content: center;
-    }
-    #stillWatchingBtn {
-      padding: 1em 2em;
-      font-size: 18px;
-      cursor: pointer;
+      display: none; /* hidden initially */
     }
   </style>
 </head>
 <body>
   <div id="whiteOverlay"></div>
   <button id="startAR">Start AR</button>
-  <button id="restartAR">Restart AR</button>
   <button id="audioToggle">🔊 Play Audio</button>
-
-  <div id="stillWatchingContainer">
-    <button id="stillWatchingBtn">Still Watching?</button>
-  </div>
 
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
@@ -62,8 +43,7 @@
     <source src="./assets/audio/background.mp3" type="audio/mpeg">
   </audio>
 
-  <a-scene
-    id="arScene"
+  <a-scene id="arScene"
     mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
     color-space="sRGB"
     renderer="colorManagement: true, physicallyCorrectLights"
@@ -88,11 +68,7 @@
   <script>
     const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
-    const restartBtn = document.getElementById("restartAR");
     const audioToggleBtn = document.getElementById("audioToggle");
-    const stillWatchingContainer = document.getElementById("stillWatchingContainer");
-    const stillWatchingBtn = document.getElementById("stillWatchingBtn");
-
     const videoPlane = document.getElementById("videoPlane");
     const targetEl = document.getElementById("target0");
     const videoA = document.getElementById("videoA");
@@ -105,10 +81,8 @@
     let nextVideo = videoB;
     let isActive = false;
     let startClicked = false;
-    let loopCount = 0;
-    const LOOP_LIMIT = 3; // reduced for testing
 
-    // Remember audio preference between sessions
+    // Persistent audio preference
     let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
 
     function pickRandomIndex() {
@@ -132,9 +106,6 @@
       nextVideo.play();
       [activeVideo, nextVideo] = [nextVideo, activeVideo];
       preloadVideo(nextVideo);
-
-      loopCount++;
-      if (loopCount >= LOOP_LIMIT) showStillWatching();
     }
 
     function monitorVideo() {
@@ -144,41 +115,6 @@
       requestAnimationFrame(monitorVideo);
     }
 
-    function showStillWatching() {
-      isActive = false;
-      activeVideo.pause();
-      nextVideo.pause();
-      bgAudio.pause();
-      audioToggleBtn.style.display = "none";
-      stillWatchingContainer.style.display = "flex";
-    }
-
-    stillWatchingBtn.addEventListener("click", () => {
-      stillWatchingContainer.style.display = "none";
-      loopCount = 0;
-      if (isActive) {
-        activeVideo.play();
-        if (userAudioPreference) bgAudio.play();
-      }
-    });
-
-    async function handleTargetFound() {
-      if (!startClicked) return;
-      isActive = true;
-      videoPlane.setAttribute("visible", true);
-      document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
-      preloadVideo(videoA);
-      preloadVideo(videoB);
-      activeVideo.play();
-
-      // Show audio button when video is playing
-      audioToggleBtn.style.display = "block";
-
-      if (userAudioPreference) {
-        try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
-      }
-    }
-
     // Start AR
     startBtn.addEventListener("click", () => {
       startClicked = true;
@@ -186,17 +122,13 @@
       startBtn.style.display = "none";
       monitorVideo();
 
-      // Check if target is already visible
+      // If target is already visible
       const mindarComponent = document.querySelector("a-scene").components["mindar-image"];
       const targetVisible = mindarComponent?.controller?.imageTrackers?.[0]?.targetVisible;
       if (targetVisible) handleTargetFound();
     });
 
-    restartBtn.addEventListener("click", () => {
-      restartBtn.style.display = "none";
-      handleTargetFound();
-    });
-
+    // Audio toggle with persistent preference
     audioToggleBtn.addEventListener("click", async () => {
       try {
         if (bgAudio.paused) {
@@ -212,6 +144,22 @@
       } catch (err) { console.log("Audio play failed:", err); }
     });
 
+    async function handleTargetFound() {
+      if (!startClicked) return;
+      isActive = true;
+      videoPlane.setAttribute("visible", true);
+      document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
+      preloadVideo(videoA);
+      preloadVideo(videoB);
+      activeVideo.play();
+      if (userAudioPreference) {
+        try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
+      }
+
+      // Show audio button only while video is playing
+      audioToggleBtn.style.display = "block";
+    }
+
     targetEl.addEventListener("targetFound", handleTargetFound);
 
     targetEl.addEventListener("targetLost", () => {
@@ -222,7 +170,7 @@
       nextVideo.pause();
       if (!bgAudio.paused) bgAudio.pause();
 
-      // Hide audio button when camera view active
+      // Hide audio button when camera is active
       audioToggleBtn.style.display = "none";
     });
 
@@ -235,10 +183,8 @@
         nextVideo.pause();
         bgAudio.pause();
         audioToggleBtn.style.display = "none";
-        stillWatchingContainer.style.display = "none";
-        restartBtn.style.display = "block"; // show restart button
         videoPlane.setAttribute("visible", false);
-        whiteOverlay.style.display = "block";
+        whiteOverlay.style.display = "block"; // user must click Start AR again
       }
     });
   </script>
