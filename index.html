@@ -184,6 +184,32 @@ document.addEventListener("visibilitychange", () => {
     startClicked = false; // require Start AR to be clicked again
   }
 });
+
+targetEl.addEventListener("targetFound", async () => {
+  if (!startClicked) return;
+  isActive = true;
+  videoPlane.setAttribute("visible", true);
+  document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
+  preloadVideo(videoA);
+  preloadVideo(videoB);
+  activeVideo.play();
+
+  // Hide audio button while the video is playing
+  audioToggleBtn.style.display = "none";
+});
+
+targetEl.addEventListener("targetLost", () => {
+  isActive = false;
+  videoPlane.setAttribute("visible", false);
+  document.querySelector("a-scene").object3D.background = null;
+  activeVideo.pause();
+  nextVideo.pause();
+  if (!bgAudio.paused) bgAudio.pause();
+
+  // Show audio button only when target is lost / camera view active
+  audioToggleBtn.style.display = "block";
+});
+
   </script>
 </body>
 </html>
