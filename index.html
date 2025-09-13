@@ -5,27 +5,15 @@
   <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; }
-    
-    /* Initial white overlay */
-    #whiteOverlay {
+    body { margin:0; overflow:hidden; }
+    #whiteOverlay, #stillWatchingOverlay {
       position: fixed;
       top: 0; left: 0;
       width: 100%; height: 100%;
-      background-color: white;
+      background: white;
       z-index: 10;
+      display: block;
     }
-
-    /* White background behind video */
-    #videoBackground {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background-color: white;
-      z-index: 0;
-      display: none;
-    }
-
     #startAR {
       position: fixed;
       top: 40%;
@@ -36,7 +24,6 @@
       font-size: 18px;
       cursor: pointer;
     }
-
     #audioToggle {
       position: fixed;
       bottom: 5%;
@@ -47,33 +34,30 @@
       cursor: pointer;
       display: none;
     }
-
     #stillWatchingBtn {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 30;
-      padding: 1em 2em;
-      font-size: 18px;
-      cursor: pointer;
-      display: none;
-      background-color: white;
-      border: 2px solid black;
+      position: absolute;
+      top:50%;
+      left:50%;
+      transform: translate(-50%,-50%);
+      font-size:20px;
+      padding:1em 2em;
+      cursor:pointer;
     }
   </style>
 </head>
 <body>
+  <!-- Initial white overlay -->
   <div id="whiteOverlay"></div>
-  <div id="videoBackground"></div>
-
   <button id="startAR">Start AR</button>
   <button id="audioToggle">🔊 Play Audio</button>
-  <button id="stillWatchingBtn">Continue Watching</button>
+
+  <!-- Still watching overlay -->
+  <div id="stillWatchingOverlay" style="display:none;">
+    <button id="stillWatchingBtn">Still Watching?</button>
+  </div>
 
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
-
   <audio id="bgAudio" loop playsinline>
     <source src="./assets/audio/background.mp3" type="audio/mpeg">
   </audio>
@@ -88,12 +72,10 @@
     look-at="[camera]"
   >
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
       <a-plane
         id="videoPlane"
-        width="1.2"
-        height="1.2"
+        width="1.2" height="1.2"
         position="0 0 0"
         look-at="[camera]"
         material="shader: flat; src: #videoA"
@@ -101,117 +83,134 @@
     </a-entity>
   </a-scene>
 
-  <script>
-    const whiteOverlay = document.getElementById("whiteOverlay");
-    const videoBackground = document.getElementById("videoBackground");
-    const startBtn = document.getElementById("startAR");
-    const audioToggleBtn = document.getElementById("audioToggle");
-    const stillWatchingBtn = document.getElementById("stillWatchingBtn");
-    const videoPlane = document.getElementById("videoPlane");
-    const targetEl = document.getElementById("target0");
-    const videoA = document.getElementById("videoA");
-    const videoB = document.getElementById("videoB");
-    const bgAudio = document.getElementById("bgAudio");
+<script>
+const whiteOverlay = document.getElementById("whiteOverlay");
+const startBtn = document.getElementById("startAR");
+const audioToggleBtn = document.getElementById("audioToggle");
+const stillWatchingOverlay = document.getElementById("stillWatchingOverlay");
+const stillWatchingBtn = document.getElementById("stillWatchingBtn");
+const videoPlane = document.getElementById("videoPlane");
+const targetEl = document.getElementById("target0");
+const videoA = document.getElementById("videoA");
+const videoB = document.getElementById("videoB");
+const bgAudio = document.getElementById("bgAudio");
 
-    const TOTAL_VIDEOS = 60;
-    let lastIndex = -1;
-    let activeVideo = videoA;
-    let nextVideo = videoB;
-    let isActive = false;
-    let userAudioPreference = true;
-    let loopCount = 0;
+const TOTAL_VIDEOS = 60;
+let lastIndex = -1;
+let activeVideo = videoA;
+let nextVideo = videoB;
+let isActive = false;
+let userAudioPreference = localStorage.getItem("audioPref") === "false" ? false : true;
+let loopCount = 0;
+const LOOPS_BEFORE_STILL = 10;
 
-    function pickRandomIndex() {
-      let idx;
-      do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
-      lastIndex = idx;
-      return idx;
+// Pick random index not equal to last
+function pickRandomIndex() {
+  let idx;
+  do { idx = Math.floor(Math.random()*TOTAL_VIDEOS); } while(idx===lastIndex);
+  lastIndex = idx;
+  return idx;
+}
+
+// Preload video
+function preloadVideo(videoEl) {
+  const idx = pickRandomIndex();
+  videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
+  videoEl.currentTime = 0;
+  videoEl.load();
+}
+
+// Swap videos
+function swapVideo() {
+  const flip = Math.random() < 0.5;
+  videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
+  videoPlane.setAttribute("material","src",nextVideo);
+  nextVideo.play();
+  [activeVideo,nextVideo] = [nextVideo,activeVideo];
+  preloadVideo(nextVideo);
+
+  loopCount++;
+  if(loopCount >= LOOPS_BEFORE_STILL){
+    // show still watching overlay
+    stillWatchingOverlay.style.display="block";
+    activeVideo.pause();
+    nextVideo.pause();
+    bgAudio.pause();
+  }
+}
+
+// Monitor video
+function monitorVideo(){
+  if(isActive && activeVideo.duration>0 && activeVideo.currentTime>=activeVideo.duration-0.05){
+    swapVideo();
+  }
+  requestAnimationFrame(monitorVideo);
+}
+
+// Start AR
+startBtn.addEventListener("click",()=>{
+  whiteOverlay.style.display="none";
+  startBtn.style.display="none";
+  monitorVideo();
+});
+
+// Audio toggle
+audioToggleBtn.addEventListener("click", async ()=>{
+  try{
+    if(bgAudio.paused){
+      await bgAudio.play();
+      audioToggleBtn.textContent="🔇 Pause Audio";
+      userAudioPreference=true;
+    } else{
+      bgAudio.pause();
+      audioToggleBtn.textContent="🔊 Play Audio";
+      userAudioPreference=false;
     }
+    localStorage.setItem("audioPref",userAudioPreference);
+  } catch(err){ console.log("Audio play failed:",err); }
+});
 
-    function preloadVideo(videoEl) {
-      const idx = pickRandomIndex();
-      videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
-      videoEl.currentTime = 0;
-      videoEl.load();
-    }
+// Still watching button
+stillWatchingBtn.addEventListener("click",()=>{
+  stillWatchingOverlay.style.display="none";
+  loopCount=0;
+  activeVideo.play();
+  if(userAudioPreference) bgAudio.play();
+});
 
-    function swapVideo() {
-      const flip = Math.random() < 0.5;
-      videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
-      videoPlane.setAttribute("material", "src", nextVideo);
-      nextVideo.play();
-      [activeVideo, nextVideo] = [nextVideo, activeVideo];
-      preloadVideo(nextVideo);
+// Pause if tab inactive
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden){
+    activeVideo.pause();
+    nextVideo.pause();
+    bgAudio.pause();
+  }
+});
 
-      loopCount++;
-      if(loopCount % 10 === 0) {
-        // Show still watching button
-        stillWatchingBtn.style.display = "block";
-        isActive = false;
-        activeVideo.pause();
-        nextVideo.pause();
-        if(!bgAudio.paused) bgAudio.pause();
-      }
-    }
+targetEl.addEventListener("targetFound", async ()=>{
+  isActive=true;
+  document.querySelector("a-scene").object3D.background=new THREE.Color(0xffffff);
+  preloadVideo(videoA);
+  preloadVideo(videoB);
+  activeVideo.play();
 
-    function monitorVideo() {
-      if (
-        isActive &&
-        activeVideo.duration > 0 &&
-        activeVideo.currentTime >= activeVideo.duration - 0.05
-      ) {
-        swapVideo();
-      }
-      requestAnimationFrame(monitorVideo);
-    }
+  audioToggleBtn.style.display="block"; // show only after target found
 
-    startBtn.addEventListener("click", () => {
-      whiteOverlay.style.display = "none";
-      startBtn.style.display = "none";
-      monitorVideo();
-    });
+  if(userAudioPreference){
+    try{ await bgAudio.play(); audioToggleBtn.textContent="🔇 Pause Audio"; } catch{}
+  } else{
+    audioToggleBtn.textContent="🔊 Play Audio";
+  }
+});
 
-    audioToggleBtn.addEventListener("click", async () => {
-      try {
-        if (bgAudio.paused) {
-          await bgAudio.play();
-          audioToggleBtn.textContent = "🔇 Pause Audio";
-          userAudioPreference = true;
-        } else {
-          bgAudio.pause();
-          audioToggleBtn.textContent = "🔊 Play Audio";
-          userAudioPreference = false;
-        }
-      } catch (err) { console.log("Audio play failed:", err); }
-    });
-
-    stillWatchingBtn.addEventListener("click", () => {
-      stillWatchingBtn.style.display = "none";
-      isActive = true;
-      activeVideo.play();
-      if(userAudioPreference) bgAudio.play();
-    });
-
-    targetEl.addEventListener("targetFound", async () => {
-      isActive = true;
-      videoBackground.style.display = "block"; // show white behind video
-      audioToggleBtn.style.display = "block";
-      preloadVideo(activeVideo);
-      preloadVideo(nextVideo);
-      activeVideo.play();
-      if(userAudioPreference){
-        try{ await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch{}
-      }
-    });
-
-    targetEl.addEventListener("targetLost", () => {
-      isActive = false;
-      videoBackground.style.display = "none";
-      audioToggleBtn.style.display = "none";
-      activeVideo.pause();
-      nextVideo.pause();
-      if(!bgAudio.paused) bgAudio.pause();
-    });
-  </script>
+targetEl.addEventListener("targetLost", ()=>{
+  isActive=false;
+  document.querySelector("a-scene").object3D.background=null;
+  activeVideo.pause();
+  nextVideo.pause();
+  bgAudio.pause();
+  audioToggleBtn.style.display="none";
+});
+</script>
 </body>
 </html>
