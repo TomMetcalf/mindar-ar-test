@@ -88,14 +88,9 @@
     let isActive = false;
     let startClicked = false;
 
-    // Still watching variables
     let loopCount = 0;
     const LOOP_LIMIT = 3;
-
-    // Track if target is currently visible
     let targetCurrentlyVisible = false;
-
-    // Load persistent audio preference
     let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
 
     function pickRandomIndex() {
@@ -158,7 +153,6 @@
       videoPlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
 
-      // ✅ Only preload once, at first start
       if (!activeVideo.src) {
         preloadVideo(videoA);
         preloadVideo(videoB);
@@ -166,15 +160,11 @@
 
       activeVideo.play();
       if (userAudioPreference) {
-        try {
-          await bgAudio.play();
-          audioToggleBtn.textContent = "🔇 Pause Audio";
-        } catch {}
+        try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
       }
       audioToggleBtn.style.display = "block";
     }
 
-    // --- Event listeners ---
     startBtn.addEventListener("click", () => {
       startClicked = true;
       whiteOverlay.style.display = "none";
@@ -188,7 +178,6 @@
 
     restartBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
-      startBtn.style.display = "none";
       restartBtn.style.display = "none";
       if (targetCurrentlyVisible) handleTargetFound();
     });
@@ -212,7 +201,7 @@
 
     targetEl.addEventListener("targetFound", () => {
       targetCurrentlyVisible = true;
-      if (startClicked) handleTargetFound(); // ✅ resume, not reload
+      if (startClicked) handleTargetFound();
     });
 
     targetEl.addEventListener("targetLost", () => {
@@ -226,7 +215,6 @@
       audioToggleBtn.style.display = "none";
     });
 
-    // Pause/resume on tab switch / screen lock
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         isActive = false;
@@ -237,10 +225,12 @@
         stillWatchingContainer.style.display = "none";
         videoPlane.setAttribute("visible", false);
       } else {
-        // When coming back: show Restart AR instead of auto-resume
+        // Show Restart AR overlay only
         whiteOverlay.style.display = "block";
         startBtn.style.display = "none";
         restartBtn.style.display = "block";
+        audioToggleBtn.style.display = "none";
+        stillWatchingContainer.style.display = "none";
       }
     });
   </script>
