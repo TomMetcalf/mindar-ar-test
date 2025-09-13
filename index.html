@@ -168,6 +168,22 @@
       if (!bgAudio.paused) bgAudio.pause();
       audioToggleBtn.textContent = userAudioPreference ? "🔇 Pause Audio" : "🔊 Play Audio";
     });
+
+    // Pause video and audio on tab switch / screen lock
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    isActive = false; // stop video loop logic
+    activeVideo.pause();
+    nextVideo.pause();
+    bgAudio.pause();
+    audioToggleBtn.style.display = "none"; // optional: hide audio toggle
+    stillWatchingContainer.style.display = "none"; // optional: hide still watching
+    restartBtn.style.display = "none"; // optional: hide restart button if using
+    videoPlane.setAttribute("visible", false); // hide video
+    whiteOverlay.style.display = "block"; // optional: show overlay if needed
+    startClicked = false; // require Start AR to be clicked again
+  }
+});
   </script>
 </body>
 </html>
