@@ -29,13 +29,16 @@
       cursor: pointer;
       display: none;
     }
-    #stillWatchingContainer {
+    #stillWatchingContainer, #moveAwayMsg {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background-color: white;
       z-index: 30;
       display: none;
       align-items: center;
       justify-content: center;
+      font-size: 20px;
+      text-align: center;
+      cursor: pointer;
     }
     #stillWatchingBtn {
       padding: 1em 2em;
@@ -53,6 +56,8 @@
   <div id="stillWatchingContainer">
     <button id="stillWatchingBtn">Still Watching?</button>
   </div>
+
+  <div id="moveAwayMsg">Move away from the target to continue</div>
 
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
@@ -90,6 +95,7 @@
     const audioToggleBtn = document.getElementById("audioToggle");
     const stillWatchingContainer = document.getElementById("stillWatchingContainer");
     const stillWatchingBtn = document.getElementById("stillWatchingBtn");
+    const moveAwayMsg = document.getElementById("moveAwayMsg");
 
     const videoPlane = document.getElementById("videoPlane");
     const targetEl = document.getElementById("target0");
@@ -104,7 +110,7 @@
     let isActive = false;
     let startClicked = false;
     let loopCount = 0;
-    const LOOP_LIMIT = 3; // Reduced for testing
+    const LOOP_LIMIT = 3; // testing
     let wasHidden = false;
 
     let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
@@ -132,7 +138,7 @@
       preloadVideo(nextVideo);
 
       loopCount++;
-      if (loopCount >= LOOP_LIMIT) showStillWatching();
+      if (loopCount >= LOOP_LIMIT) checkStillWatching();
     }
 
     function monitorVideo() {
@@ -140,6 +146,22 @@
         swapVideo();
       }
       requestAnimationFrame(monitorVideo);
+    }
+
+    function checkStillWatching() {
+      const mindarComponent = document.querySelector("a-scene").components["mindar-image"];
+      const targetVisible = mindarComponent?.controller?.imageTrackers?.[0]?.targetVisible;
+
+      if (targetVisible) {
+        moveAwayMsg.style.display = "flex"; // show message
+        isActive = false;
+        activeVideo.pause();
+        nextVideo.pause();
+        bgAudio.pause();
+        audioToggleBtn.style.display = "none";
+      } else {
+        showStillWatching(); // normal behavior if not on target
+      }
     }
 
     function showStillWatching() {
@@ -154,19 +176,11 @@
     stillWatchingBtn.addEventListener("click", () => {
       stillWatchingContainer.style.display = "none";
       loopCount = 0;
+      handleTargetFound();
+    });
 
-      // Check if target is currently visible
-      const mindarComponent = document.querySelector("a-scene").components["mindar-image"];
-      const targetVisible = mindarComponent?.controller?.imageTrackers?.[0]?.targetVisible;
-
-      if (targetVisible) {
-        handleTargetFound(); // Restart properly if still looking at target
-      } else {
-        if (isActive) {
-          activeVideo.play();
-          if (userAudioPreference) bgAudio.play();
-        }
-      }
+    moveAwayMsg.addEventListener("click", () => {
+      moveAwayMsg.style.display = "none";
     });
 
     async function handleTargetFound() {
@@ -229,6 +243,7 @@
         bgAudio.pause();
         audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
+        moveAwayMsg.style.display = "none";
         whiteOverlay.style.display = "block";
         startBtn.style.display = "block";
         videoPlane.setAttribute("visible", false);
