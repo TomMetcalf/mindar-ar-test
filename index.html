@@ -5,48 +5,38 @@
   <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; }
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
     #whiteOverlay {
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background-color: white;
-      z-index: 10;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background-color: white; z-index: 10;
     }
-    #startAR {
-      position: fixed; top: 40%; left: 50%;
+    .centerBtn {
+      position: fixed; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
       z-index: 20;
-      padding: 1em 2em;
-      font-size: 18px;
+      padding: 1em 2em; font-size: 18px;
       cursor: pointer;
     }
     #audioToggle {
       position: fixed; bottom: 5%; right: 5%;
-      z-index: 20;
-      padding: 0.5em 1em;
-      font-size: 16px;
-      cursor: pointer;
-      display: none; /* hidden initially */
+      z-index: 20; padding: 0.5em 1em; font-size: 16px;
+      cursor: pointer; display: none;
     }
     #stillWatchingContainer {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background-color: white;
-      z-index: 30;
-      display: none;
-      align-items: center;
-      justify-content: center;
+      background-color: white; z-index: 30; display: none;
+      align-items: center; justify-content: center;
     }
     #stillWatchingBtn {
-      padding: 1em 2em;
-      font-size: 18px;
-      cursor: pointer;
+      padding: 1em 2em; font-size: 18px; cursor: pointer;
     }
     #arScene { display: block; }
   </style>
 </head>
 <body>
   <div id="whiteOverlay"></div>
-  <button id="startAR">Start AR</button>
+  <button id="startAR" class="centerBtn">Start AR</button>
+  <button id="restartAR" class="centerBtn" style="display:none;">Restart AR</button>
   <button id="audioToggle">🔊 Play Audio</button>
 
   <div id="stillWatchingContainer">
@@ -86,10 +76,10 @@
   <script>
     const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
+    const restartBtn = document.getElementById("restartAR");
     const audioToggleBtn = document.getElementById("audioToggle");
     const stillWatchingContainer = document.getElementById("stillWatchingContainer");
     const stillWatchingBtn = document.getElementById("stillWatchingBtn");
-
     const videoPlane = document.getElementById("videoPlane");
     const targetEl = document.getElementById("target0");
     const videoA = document.getElementById("videoA");
@@ -105,14 +95,11 @@
     let loopCount = 0;
     const LOOP_LIMIT = 10;
 
-    // Remember audio preference between sessions
     let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
 
     function pickRandomIndex() {
       let idx;
-      do {
-        idx = Math.floor(Math.random() * TOTAL_VIDEOS);
-      } while (idx === lastIndex);
+      do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
       lastIndex = idx;
       return idx;
     }
@@ -155,9 +142,10 @@
     stillWatchingBtn.addEventListener("click", () => {
       stillWatchingContainer.style.display = "none";
       loopCount = 0;
-      isActive = true;
-      activeVideo.play();
-      if (userAudioPreference) bgAudio.play();
+      if (isActive) {
+        activeVideo.play();
+        if (userAudioPreference) bgAudio.play();
+      }
     });
 
     async function handleTargetFound() {
@@ -174,16 +162,34 @@
       audioToggleBtn.style.display = "block";
     }
 
+    function resetAR() {
+      isActive = false;
+      startClicked = false;
+      loopCount = 0;
+      activeVideo.pause();
+      nextVideo.pause();
+      bgAudio.pause();
+      audioToggleBtn.style.display = "none";
+      restartBtn.style.display = "none";
+      stillWatchingContainer.style.display = "none";
+      whiteOverlay.style.display = "block";
+      startBtn.style.display = "block";
+      videoPlane.setAttribute("visible", false);
+    }
+
     startBtn.addEventListener("click", () => {
       startClicked = true;
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
       videoPlane.setAttribute("visible", false);
       monitorVideo();
+    });
 
-      const mindarComponent = document.querySelector("a-scene").components["mindar-image"];
-      const targetVisible = mindarComponent?.controller?.imageTrackers?.[0]?.targetVisible;
-      if (targetVisible) handleTargetFound();
+    restartBtn.addEventListener("click", () => {
+      restartBtn.style.display = "none";
+      startClicked = true;
+      monitorVideo();
+      handleTargetFound();
     });
 
     audioToggleBtn.addEventListener("click", async () => {
@@ -204,7 +210,6 @@
     });
 
     targetEl.addEventListener("targetFound", handleTargetFound);
-
     targetEl.addEventListener("targetLost", () => {
       isActive = false;
       videoPlane.setAttribute("visible", false);
@@ -215,19 +220,17 @@
       audioToggleBtn.style.display = "none";
     });
 
-    // Reset on screen lock
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden) {
-        isActive = false;
-        startClicked = false;
-        activeVideo.pause();
-        nextVideo.pause();
-        bgAudio.pause();
-        audioToggleBtn.style.display = "none";
-        stillWatchingContainer.style.display = "none";
-        whiteOverlay.style.display = "block";
-        startBtn.style.display = "block";
-        videoPlane.setAttribute("visible", false);
+      if (document.hidden) resetAR();
+      else {
+        // If already locked on target after unlock, show Restart button
+        const mindarComponent = document.querySelector("a-scene").components["mindar-image"];
+        if (mindarComponent && mindarComponent.controller) {
+          const trackers = mindarComponent.controller.imageTrackers;
+          if (trackers && trackers[0] && trackers[0].targetVisible) {
+            restartBtn.style.display = "block";
+          }
+        }
       }
     });
   </script>
