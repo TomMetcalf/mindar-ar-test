@@ -12,7 +12,7 @@
       width: 100%; height: 100%;
       background-color: white;
       z-index: 10;
-      display: none; /* show only when target is found */
+      display: block; /* visible at page load */
     }
     #startAR {
       position: fixed;
@@ -79,14 +79,12 @@
     const videoA = document.getElementById("videoA");
     const videoB = document.getElementById("videoB");
     const bgAudio = document.getElementById("bgAudio");
-    const scene = document.querySelector("a-scene");
 
     const TOTAL_VIDEOS = 60;
     let lastIndex = -1;
     let activeVideo = videoA;
     let nextVideo = videoB;
     let isActive = false;
-
     let userAudioPreference = localStorage.getItem("audioPref") !== "false";
 
     function pickRandomIndex() {
@@ -123,6 +121,7 @@
       requestAnimationFrame(monitorVideo);
     }
 
+    // Start AR button click
     startBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none"; // hide overlay before AR
       startBtn.style.display = "none";
@@ -158,21 +157,21 @@
 
     targetEl.addEventListener("targetLost", () => {
       isActive = false;
-      whiteOverlay.style.display = "none"; // hide white overlay, show camera
+      whiteOverlay.style.display = "none"; // hide white overlay, show camera feed
       activeVideo.pause();
       nextVideo.pause();
-      audioToggleBtn.style.display = "none"; 
+      audioToggleBtn.style.display = "none";
       if (!bgAudio.paused) bgAudio.pause();
     });
 
-    // Reset on lock screen
+    // Reset on lock screen or tab change
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         isActive = false;
         activeVideo.pause();
         nextVideo.pause();
         bgAudio.pause();
-        whiteOverlay.style.display = "none";
+        whiteOverlay.style.display = "block"; // revert to initial white background
         audioToggleBtn.style.display = "none";
       }
     });
