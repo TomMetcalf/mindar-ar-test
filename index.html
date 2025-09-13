@@ -6,14 +6,12 @@
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
     body { margin: 0; overflow: hidden; }
-
     #whiteOverlay {
       position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
       background-color: white;
       z-index: 10;
     }
-
     #startAR {
       position: fixed; top: 40%; left: 50%;
       transform: translate(-50%, -50%);
@@ -22,7 +20,6 @@
       font-size: 18px;
       cursor: pointer;
     }
-
     #audioToggle {
       position: fixed; bottom: 5%; right: 5%;
       z-index: 20;
@@ -31,7 +28,6 @@
       cursor: pointer;
       display: none;
     }
-
     #stillWatchingContainer {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
@@ -41,13 +37,11 @@
       align-items: center;
       justify-content: center;
     }
-
     #stillWatchingBtn {
       padding: 1em 2em;
       font-size: 18px;
       cursor: pointer;
     }
-
     #moveAwayMsg {
       position: fixed;
       top: 50%; left: 50%;
@@ -55,13 +49,12 @@
       background: white;
       padding: 1em 2em;
       font-size: 18px;
-      z-index: 40; /* above whiteOverlay */
+      z-index: 9999; /* ensure always above everything */
       display: none;
       border: 2px solid black;
       border-radius: 8px;
       text-align: center;
     }
-
     #arScene { display: block; }
   </style>
 </head>
@@ -130,7 +123,6 @@
     let loopCount = 0;
     const LOOP_LIMIT = 10;
 
-    // Remember audio preference between sessions
     let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
 
     function pickRandomIndex() {
@@ -188,10 +180,10 @@
       }
     });
 
-    // 🔑 Reusable targetFound handler
     async function handleTargetFound() {
       if (!startClicked) return;
       isActive = true;
+      moveAwayMsg.style.display = "none";
       videoPlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
       preloadVideo(videoA);
@@ -203,7 +195,6 @@
       audioToggleBtn.style.display = "block";
     }
 
-    // Start AR
     startBtn.addEventListener("click", () => {
       startClicked = true;
       whiteOverlay.style.display = "none";
@@ -211,18 +202,15 @@
       videoPlane.setAttribute("visible", false);
       monitorVideo();
 
-      // ✅ Check if target is already visible, trigger manually
       const mindarComponent = document.querySelector("a-scene").components["mindar-image"];
       if (mindarComponent && mindarComponent.controller) {
         const trackers = mindarComponent.controller.imageTrackers;
         if (trackers && trackers[0] && trackers[0].targetVisible) {
-          // Show move away message instead of freezing
-          moveAwayMsg.style.display = "block";
+          moveAwayMsg.style.display = "block"; // show message if target already in view
         }
       }
     });
 
-    // Audio toggle button
     audioToggleBtn.addEventListener("click", async () => {
       try {
         if (bgAudio.paused) {
@@ -240,13 +228,7 @@
       }
     });
 
-    // Target events
-    targetEl.addEventListener("targetFound", async () => {
-      if (moveAwayMsg.style.display === "block") {
-        moveAwayMsg.style.display = "none";
-      }
-      handleTargetFound();
-    });
+    targetEl.addEventListener("targetFound", handleTargetFound);
 
     targetEl.addEventListener("targetLost", () => {
       isActive = false;
@@ -258,7 +240,6 @@
       audioToggleBtn.style.display = "none";
     });
 
-    // Reset everything on screen lock / visibility change
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         isActive = false;
@@ -268,10 +249,10 @@
         bgAudio.pause();
         audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
-        moveAwayMsg.style.display = "none";
         whiteOverlay.style.display = "block";
         startBtn.style.display = "block";
         videoPlane.setAttribute("visible", false);
+        moveAwayMsg.style.display = "none";
       }
     });
   </script>
