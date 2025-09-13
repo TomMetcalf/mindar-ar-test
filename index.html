@@ -31,7 +31,7 @@
       padding: 0.5em 1em;
       font-size: 16px;
       cursor: pointer;
-      display: none; /* hidden initially */
+      display: none; /* hidden until first targetFound */
     }
   </style>
 </head>
@@ -85,12 +85,14 @@
     let activeVideo = videoA;
     let nextVideo = videoB;
     let isActive = false;
-    let audioButtonShown = false;
     let userAudioPreference = true;
+    let firstTargetFound = false;
 
     function pickRandomIndex() {
       let idx;
-      do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
+      do {
+        idx = Math.floor(Math.random() * TOTAL_VIDEOS);
+      } while (idx === lastIndex);
       lastIndex = idx;
       return idx;
     }
@@ -112,28 +114,22 @@
     }
 
     function monitorVideo() {
-      if (isActive && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration - 0.05) {
+      if (
+        isActive &&
+        activeVideo.duration > 0 &&
+        activeVideo.currentTime >= activeVideo.duration - 0.05
+      ) {
         swapVideo();
       }
       requestAnimationFrame(monitorVideo);
     }
 
-    // Start AR button
-    startBtn.addEventListener("click", async () => {
+    startBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
-
-      preloadVideo(videoA);
-      preloadVideo(videoB);
-
-      try {
-        await videoA.play(); // iOS requires user gesture
-      } catch(err) { console.log("Video playback failed:", err); }
-
       monitorVideo();
     });
 
-    // Audio toggle button
     audioToggleBtn.addEventListener("click", async () => {
       try {
         if (bgAudio.paused) {
@@ -145,24 +141,26 @@
           audioToggleBtn.textContent = "🔊 Play Audio";
           userAudioPreference = false;
         }
-      } catch (err) { console.log("Audio play failed:", err); }
+      } catch (err) {
+        console.log("Audio play failed:", err);
+      }
     });
 
     targetEl.addEventListener("targetFound", async () => {
       isActive = true;
-
-      // Show audio button only the first time
-      if (!audioButtonShown) {
-        audioToggleBtn.style.display = "block";
-        audioButtonShown = true;
-      }
-
-      // Keep white background behind video
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
-
-      try { await activeVideo.play(); } catch {}
+      preloadVideo(videoA);
+      preloadVideo(videoB);
+      activeVideo.play();
+      if (!firstTargetFound) {
+        audioToggleBtn.style.display = "block";
+        firstTargetFound = true;
+      }
       if (userAudioPreference) {
-        try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
+        try {
+          await bgAudio.play();
+          audioToggleBtn.textContent = "🔇 Pause Audio";
+        } catch {}
       }
     });
 
@@ -173,6 +171,40 @@
       nextVideo.pause();
       if (!bgAudio.paused) bgAudio.pause();
       audioToggleBtn.textContent = userAudioPreference ? "🔇 Pause Audio" : "🔊 Play Audio";
+    });
+
+    // === Pause/Resume logic when tab/window hidden ===
+    let hiddenAt = null;
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+        [videoA, videoB].forEach(v => { if (!v.paused) v.pause(); });
+        if (!bgAudio.paused) bgAudio.pause();
+      } else if (document.visibilityState === "visible") {
+        const awayTime = hiddenAt ? Date.now() - hiddenAt : 0;
+        hiddenAt = null;
+
+        if (awayTime > 5 * 60 * 1000) {
+          // Reset after >5 minutes
+          console.log("Resetting AR session after long away time...");
+          isActive = false;
+          lastIndex = -1;
+          [videoA, videoB].forEach(v => {
+            v.pause();
+            v.removeAttribute("src");
+            v.load();
+          });
+          document.querySelector("a-scene").object3D.background = null;
+        } else {
+          // Resume if active
+          if (isActive) {
+            activeVideo.play().catch(() => {});
+            if (userAudioPreference) {
+              bgAudio.play().catch(() => {});
+            }
+          }
+        }
+      }
     });
   </script>
 </body>
