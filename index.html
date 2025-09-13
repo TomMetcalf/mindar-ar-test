@@ -202,33 +202,12 @@
       audioToggleBtn.style.display = "block";
     }
 
-    startBtn.addEventListener("click", async () => {
+    startBtn.addEventListener("click", () => {
       startClicked = true;
-      isActive = false;
-      loopCount = 0;
-
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
       videoPlane.setAttribute("visible", false);
-
-      preloadVideo(videoA);
-      preloadVideo(videoB);
-
-      activeVideo = videoA;
-      nextVideo = videoB;
-
       monitorVideo();
-
-      if (userAudioPreference) {
-        try {
-          await bgAudio.play();
-          audioToggleBtn.textContent = "🔇 Pause Audio";
-        } catch (err) {
-          console.log("Audio play failed:", err);
-        }
-      }
-
-      audioToggleBtn.style.display = "block";
     });
 
     audioToggleBtn.addEventListener("click", async () => {
@@ -260,31 +239,19 @@
       audioToggleBtn.style.display = "none";
     });
 
-    // Pause and reset everything on tab switch / screen lock
+    // Pause everything on tab switch / screen lock
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         isActive = false;
+        startClicked = false;
         activeVideo.pause();
         nextVideo.pause();
         bgAudio.pause();
-      } else {
-        isActive = false;
-        startClicked = false;
-        loopCount = 0;
-
-        activeVideo.pause();
-        nextVideo.pause();
-        activeVideo.currentTime = 0;
-        nextVideo.currentTime = 0;
-
-        videoPlane.setAttribute("visible", false);
-        stillWatchingContainer.style.display = "none";
         audioToggleBtn.style.display = "none";
-
+        stillWatchingContainer.style.display = "none";
         whiteOverlay.style.display = "block";
         startBtn.style.display = "block";
-
-        document.querySelector("a-scene").object3D.background = null;
+        videoPlane.setAttribute("visible", false);
       }
     });
   </script>
