@@ -12,6 +12,7 @@
       width: 100%; height: 100%;
       background-color: white;
       z-index: 10;
+      display: none; /* show only when target is found */
     }
     #startAR {
       position: fixed;
@@ -33,27 +34,12 @@
       cursor: pointer;
       display: none;
     }
-    #stillWatching {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 30;
-      padding: 1em 2em;
-      font-size: 18px;
-      cursor: pointer;
-      display: none;
-      background-color: white;
-      border: 2px solid #333;
-      border-radius: 5px;
-    }
   </style>
 </head>
 <body>
   <div id="whiteOverlay"></div>
   <button id="startAR">Start AR</button>
   <button id="audioToggle">🔊 Play Audio</button>
-  <button id="stillWatching">Still Watching?</button>
 
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
@@ -88,7 +74,6 @@
     const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
     const audioToggleBtn = document.getElementById("audioToggle");
-    const stillWatchingBtn = document.getElementById("stillWatching");
     const videoPlane = document.getElementById("videoPlane");
     const targetEl = document.getElementById("target0");
     const videoA = document.getElementById("videoA");
@@ -101,10 +86,7 @@
     let activeVideo = videoA;
     let nextVideo = videoB;
     let isActive = false;
-    let loopCount = 0;
-    const MAX_LOOPS = 10;
 
-    // Remember audio preference across sessions
     let userAudioPreference = localStorage.getItem("audioPref") !== "false";
 
     function pickRandomIndex() {
@@ -128,36 +110,21 @@
       nextVideo.play();
       [activeVideo, nextVideo] = [nextVideo, activeVideo];
       preloadVideo(nextVideo);
-
-      loopCount++;
-      if (loopCount >= MAX_LOOPS) {
-        activeVideo.pause();
-        nextVideo.pause();
-        stillWatchingBtn.style.display = "block";
-      }
     }
 
     function monitorVideo() {
-      if (isActive && activeVideo.duration > 0 &&
-          activeVideo.currentTime >= activeVideo.duration - 0.05) {
+      if (
+        isActive &&
+        activeVideo.duration > 0 &&
+        activeVideo.currentTime >= activeVideo.duration - 0.05
+      ) {
         swapVideo();
       }
       requestAnimationFrame(monitorVideo);
     }
 
-    function resetExperience() {
-      isActive = false;
-      loopCount = 0;
-      activeVideo.pause();
-      nextVideo.pause();
-      bgAudio.pause();
-      stillWatchingBtn.style.display = "none";
-      audioToggleBtn.style.display = "none";
-      scene.object3D.background = null;
-    }
-
     startBtn.addEventListener("click", () => {
-      whiteOverlay.style.display = "none";
+      whiteOverlay.style.display = "none"; // hide overlay before AR
       startBtn.style.display = "none";
       monitorVideo();
     });
@@ -174,28 +141,16 @@
           userAudioPreference = false;
         }
         localStorage.setItem("audioPref", userAudioPreference);
-      } catch (err) {
-        console.log("Audio play failed:", err);
-      }
-    });
-
-    stillWatchingBtn.addEventListener("click", () => {
-      loopCount = 0;
-      stillWatchingBtn.style.display = "none";
-      if (isActive) activeVideo.play();
-      if (userAudioPreference) bgAudio.play();
+      } catch (err) { console.log(err); }
     });
 
     targetEl.addEventListener("targetFound", async () => {
       isActive = true;
-      loopCount = 0;
-      scene.object3D.background = new THREE.Color(0xffffff); // keep white behind video
-      videoPlane.setAttribute("material", "src", activeVideo);
+      whiteOverlay.style.display = "block"; // show white background behind video
+      audioToggleBtn.style.display = "block"; // show audio button after target found
       preloadVideo(activeVideo);
       preloadVideo(nextVideo);
       activeVideo.play();
-
-      audioToggleBtn.style.display = "block"; // show only after target found
       if (userAudioPreference) {
         try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
       }
@@ -203,16 +158,22 @@
 
     targetEl.addEventListener("targetLost", () => {
       isActive = false;
+      whiteOverlay.style.display = "none"; // hide white overlay, show camera
       activeVideo.pause();
       nextVideo.pause();
-      audioToggleBtn.style.display = "none";
+      audioToggleBtn.style.display = "none"; 
       if (!bgAudio.paused) bgAudio.pause();
-      scene.object3D.background = new THREE.Color(0xffffff); // keep background white
     });
 
+    // Reset on lock screen
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
-        resetExperience(); // reset everything on lock screen
+        isActive = false;
+        activeVideo.pause();
+        nextVideo.pause();
+        bgAudio.pause();
+        whiteOverlay.style.display = "none";
+        audioToggleBtn.style.display = "none";
       }
     });
   </script>
