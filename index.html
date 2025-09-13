@@ -85,13 +85,13 @@
     let activeVideo = videoA;
     let nextVideo = videoB;
     let isActive = false;
-    let userAudioPreference = true;
+
+    // Load persistent audio preference, default to true
+    let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
 
     function pickRandomIndex() {
       let idx;
-      do {
-        idx = Math.floor(Math.random() * TOTAL_VIDEOS);
-      } while (idx === lastIndex);
+      do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
       lastIndex = idx;
       return idx;
     }
@@ -113,16 +113,13 @@
     }
 
     function monitorVideo() {
-      if (
-        isActive &&
-        activeVideo.duration > 0 &&
-        activeVideo.currentTime >= activeVideo.duration - 0.05
-      ) {
+      if (isActive && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration - 0.05) {
         swapVideo();
       }
       requestAnimationFrame(monitorVideo);
     }
 
+    // Start AR
     startBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
@@ -130,6 +127,7 @@
       monitorVideo();
     });
 
+    // Audio toggle button with persistent preference
     audioToggleBtn.addEventListener("click", async () => {
       try {
         if (bgAudio.paused) {
@@ -141,11 +139,13 @@
           audioToggleBtn.textContent = "🔊 Play Audio";
           userAudioPreference = false;
         }
+        localStorage.setItem("userAudioPref", userAudioPreference);
       } catch (err) {
         console.log("Audio play failed:", err);
       }
     });
 
+    // Target events
     targetEl.addEventListener("targetFound", async () => {
       isActive = true;
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
