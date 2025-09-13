@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -39,12 +38,13 @@
       top: 40%;
       left: 50%;
       transform: translate(-50%, -50%);
-      z-index: 30;
+      z-index: 25;
       padding: 1em 2em;
       font-size: 18px;
       cursor: pointer;
       display: none;
       background-color: white;
+      border: 1px solid black;
     }
   </style>
 </head>
@@ -52,7 +52,7 @@
   <div id="whiteOverlay"></div>
   <button id="startAR">Start AR</button>
   <button id="audioToggle">🔊 Play Audio</button>
-  <button id="stillWatching">Continue Watching</button>
+  <button id="stillWatching">Still Watching?</button>
 
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
@@ -71,6 +71,7 @@
     look-at="[camera]"
   >
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
       <a-plane
         id="videoPlane"
@@ -87,7 +88,7 @@
     const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
     const audioToggleBtn = document.getElementById("audioToggle");
-    const stillWatchingBtn = document.getElementById("stillWatching");
+    const stillBtn = document.getElementById("stillWatching");
     const videoPlane = document.getElementById("videoPlane");
     const targetEl = document.getElementById("target0");
     const videoA = document.getElementById("videoA");
@@ -99,12 +100,14 @@
     let activeVideo = videoA;
     let nextVideo = videoB;
     let isActive = false;
-    let userAudioPreference = localStorage.getItem("audioPref") !== "false";
-    let loopCount = 0;
+    let userAudioPreference = JSON.parse(localStorage.getItem("audioPref")) ?? true;
+    let loopsSinceStill = 0;
 
     function pickRandomIndex() {
       let idx;
-      do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
+      do {
+        idx = Math.floor(Math.random() * TOTAL_VIDEOS);
+      } while (idx === lastIndex);
       lastIndex = idx;
       return idx;
     }
@@ -124,25 +127,53 @@
       [activeVideo, nextVideo] = [nextVideo, activeVideo];
       preloadVideo(nextVideo);
 
-      loopCount++;
-      if (loopCount % 10 === 0) {
-        activeVideo.pause();
-        nextVideo.pause();
-        bgAudio.pause();
-        stillWatchingBtn.style.display = "block";
+      loopsSinceStill++;
+      if (loopsSinceStill >= 10) {
+        pauseForStillWatching();
       }
     }
 
+    function pauseForStillWatching() {
+      activeVideo.pause();
+      nextVideo.pause();
+      if (!bgAudio.paused) bgAudio.pause();
+      stillBtn.style.display = "block";
+      loopsSinceStill = 0;
+    }
+
+    stillBtn.addEventListener("click", () => {
+      stillBtn.style.display = "none";
+      if (userAudioPreference) bgAudio.play();
+      activeVideo.play();
+      nextVideo.play();
+    });
+
     function monitorVideo() {
-      if (isActive && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration - 0.05) {
+      if (
+        isActive &&
+        activeVideo.duration > 0 &&
+        activeVideo.currentTime >= activeVideo.duration - 0.05
+      ) {
         swapVideo();
       }
       requestAnimationFrame(monitorVideo);
     }
 
+    function resetAR() {
+      isActive = false;
+      activeVideo.pause();
+      nextVideo.pause();
+      bgAudio.pause();
+      audioToggleBtn.style.display = "none";
+      stillBtn.style.display = "none";
+      whiteOverlay.style.display = "block";
+      startBtn.style.display = "block";
+    }
+
     startBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
+      audioToggleBtn.style.display = "block";
       monitorVideo();
     });
 
@@ -157,15 +188,10 @@
           audioToggleBtn.textContent = "🔊 Play Audio";
           userAudioPreference = false;
         }
-        localStorage.setItem("audioPref", userAudioPreference);
-      } catch (err) { console.log("Audio play failed:", err); }
-    });
-
-    stillWatchingBtn.addEventListener("click", async () => {
-      stillWatchingBtn.style.display = "none";
-      activeVideo.play();
-      nextVideo.play();
-      if (userAudioPreference) await bgAudio.play();
+        localStorage.setItem("audioPref", JSON.stringify(userAudioPreference));
+      } catch (err) {
+        console.log("Audio play failed:", err);
+      }
     });
 
     targetEl.addEventListener("targetFound", async () => {
@@ -174,7 +200,6 @@
       preloadVideo(videoA);
       preloadVideo(videoB);
       activeVideo.play();
-      audioToggleBtn.style.display = "block";
       if (userAudioPreference) {
         try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
       }
@@ -185,22 +210,14 @@
       document.querySelector("a-scene").object3D.background = null;
       activeVideo.pause();
       nextVideo.pause();
-      bgAudio.pause();
+      if (!bgAudio.paused) bgAudio.pause();
       audioToggleBtn.style.display = "none";
-      audioToggleBtn.textContent = userAudioPreference ? "🔇 Pause Audio" : "🔊 Play Audio";
     });
 
+    // Pause everything if user switches tabs or device locks
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
-        activeVideo.pause();
-        nextVideo.pause();
-        bgAudio.pause();
-        audioToggleBtn.style.display = "none";
-        stillWatchingBtn.style.display = "none";
-        loopCount = 0;
-        isActive = false;
-        whiteOverlay.style.display = "block";
-        startBtn.style.display = "block";
+        resetAR();
       }
     });
   </script>
