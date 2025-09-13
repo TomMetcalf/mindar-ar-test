@@ -106,7 +106,6 @@
     let loopCount = 0;
     const LOOP_LIMIT = 10;
 
-    // Remember audio preference
     let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
 
     function pickRandomIndex() {
@@ -181,7 +180,7 @@
       videoPlane.setAttribute("visible", false);
       monitorVideo();
 
-      // If target already visible, start video immediately
+      // If the user is already pointing at the target, trigger manually
       const mindarComponent = document.querySelector("a-scene").components["mindar-image"];
       const targetVisible = mindarComponent?.controller?.imageTrackers?.[0]?.targetVisible;
       if (targetVisible) handleTargetFound();
@@ -214,7 +213,6 @@
       audioToggleBtn.style.display = "none";
     });
 
-    // Reset everything on screen lock / visibility change
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         isActive = false;
