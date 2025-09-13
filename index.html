@@ -157,8 +157,13 @@
       isActive = true;
       videoPlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
-      preloadVideo(videoA);
-      preloadVideo(videoB);
+
+      // ✅ Only preload once, at first start
+      if (!activeVideo.src) {
+        preloadVideo(videoA);
+        preloadVideo(videoB);
+      }
+
       activeVideo.play();
       if (userAudioPreference) {
         try {
@@ -207,7 +212,7 @@
 
     targetEl.addEventListener("targetFound", () => {
       targetCurrentlyVisible = true;
-      if (startClicked) handleTargetFound();
+      if (startClicked) handleTargetFound(); // ✅ resume, not reload
     });
 
     targetEl.addEventListener("targetLost", () => {
