@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -35,16 +36,16 @@
     }
     #stillWatching {
       position: fixed;
-      top: 40%;
+      top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      z-index: 25;
+      z-index: 30;
       padding: 1em 2em;
       font-size: 18px;
       cursor: pointer;
       display: none;
       background-color: white;
-      border: 1px solid black;
+      border: 2px solid #000;
     }
   </style>
 </head>
@@ -52,7 +53,7 @@
   <div id="whiteOverlay"></div>
   <button id="startAR">Start AR</button>
   <button id="audioToggle">🔊 Play Audio</button>
-  <button id="stillWatching">Still Watching?</button>
+  <button id="stillWatching">Continue Watching</button>
 
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
@@ -71,7 +72,6 @@
     look-at="[camera]"
   >
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
       <a-plane
         id="videoPlane"
@@ -84,142 +84,151 @@
     </a-entity>
   </a-scene>
 
-  <script>
-    const whiteOverlay = document.getElementById("whiteOverlay");
-    const startBtn = document.getElementById("startAR");
-    const audioToggleBtn = document.getElementById("audioToggle");
-    const stillBtn = document.getElementById("stillWatching");
-    const videoPlane = document.getElementById("videoPlane");
-    const targetEl = document.getElementById("target0");
-    const videoA = document.getElementById("videoA");
-    const videoB = document.getElementById("videoB");
-    const bgAudio = document.getElementById("bgAudio");
+<script>
+const whiteOverlay = document.getElementById("whiteOverlay");
+const startBtn = document.getElementById("startAR");
+const audioToggleBtn = document.getElementById("audioToggle");
+const stillWatchingBtn = document.getElementById("stillWatching");
+const videoPlane = document.getElementById("videoPlane");
+const targetEl = document.getElementById("target0");
+const videoA = document.getElementById("videoA");
+const videoB = document.getElementById("videoB");
+const bgAudio = document.getElementById("bgAudio");
 
-    const TOTAL_VIDEOS = 60;
-    let lastIndex = -1;
-    let activeVideo = videoA;
-    let nextVideo = videoB;
-    let isActive = false;
-    let userAudioPreference = JSON.parse(localStorage.getItem("audioPref")) ?? true;
-    let loopsSinceStill = 0;
+const TOTAL_VIDEOS = 60;
+let lastIndex = -1;
+let activeVideo = videoA;
+let nextVideo = videoB;
+let isActive = false;
+let loopsPlayed = 0;
+let userAudioPreference = localStorage.getItem('audioOn') !== 'false';
 
-    function pickRandomIndex() {
-      let idx;
-      do {
-        idx = Math.floor(Math.random() * TOTAL_VIDEOS);
-      } while (idx === lastIndex);
-      lastIndex = idx;
-      return idx;
-    }
+// pick random video index avoiding last
+function pickRandomIndex() {
+  let idx;
+  do { idx = Math.floor(Math.random()*TOTAL_VIDEOS); } while(idx===lastIndex);
+  lastIndex = idx;
+  return idx;
+}
 
-    function preloadVideo(videoEl) {
-      const idx = pickRandomIndex();
-      videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
-      videoEl.currentTime = 0;
-      videoEl.load();
-    }
+function preloadVideo(videoEl) {
+  const idx = pickRandomIndex();
+  videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
+  videoEl.currentTime = 0;
+  videoEl.load();
+}
 
-    function swapVideo() {
-      const flip = Math.random() < 0.5;
-      videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
-      videoPlane.setAttribute("material", "src", nextVideo);
-      nextVideo.play();
-      [activeVideo, nextVideo] = [nextVideo, activeVideo];
-      preloadVideo(nextVideo);
+// swap video with random flip
+function swapVideo() {
+  const flip = Math.random() < 0.5;
+  videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
+  videoPlane.setAttribute("material","src",nextVideo);
+  nextVideo.play();
+  [activeVideo,nextVideo] = [nextVideo,activeVideo];
+  preloadVideo(nextVideo);
+  loopsPlayed++;
+  if(loopsPlayed % 10 === 0){
+    pauseForStillWatching();
+  }
+}
 
-      loopsSinceStill++;
-      if (loopsSinceStill >= 10) {
-        pauseForStillWatching();
-      }
-    }
+// monitor video for end
+function monitorVideo() {
+  if(isActive && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration-0.05){
+    swapVideo();
+  }
+  requestAnimationFrame(monitorVideo);
+}
 
-    function pauseForStillWatching() {
-      activeVideo.pause();
-      nextVideo.pause();
-      if (!bgAudio.paused) bgAudio.pause();
-      stillBtn.style.display = "block";
-      loopsSinceStill = 0;
-    }
+// pause everything and show still watching
+function pauseForStillWatching() {
+  isActive=false;
+  activeVideo.pause();
+  nextVideo.pause();
+  if(!bgAudio.paused) bgAudio.pause();
+  stillWatchingBtn.style.display='block';
+}
 
-    stillBtn.addEventListener("click", () => {
-      stillBtn.style.display = "none";
-      if (userAudioPreference) bgAudio.play();
-      activeVideo.play();
-      nextVideo.play();
-    });
+// resume after still watching
+stillWatchingBtn.addEventListener('click', async ()=>{
+  stillWatchingBtn.style.display='none';
+  isActive=true;
+  if(userAudioPreference) {
+    try { await bgAudio.play(); } catch{}
+  }
+  monitorVideo();
+});
 
-    function monitorVideo() {
-      if (
-        isActive &&
-        activeVideo.duration > 0 &&
-        activeVideo.currentTime >= activeVideo.duration - 0.05
-      ) {
-        swapVideo();
-      }
-      requestAnimationFrame(monitorVideo);
-    }
+// start AR
+startBtn.addEventListener("click", async () => {
+  whiteOverlay.style.display="none";
+  startBtn.style.display="none";
+  audioToggleBtn.style.display="block"; // audio appears after first target
+  monitorVideo();
+  if(isActive && userAudioPreference){
+    try{ await bgAudio.play(); }catch{}
+  }
+});
 
-    function resetAR() {
-      isActive = false;
-      activeVideo.pause();
-      nextVideo.pause();
+// audio toggle
+audioToggleBtn.addEventListener("click", async ()=>{
+  try{
+    if(bgAudio.paused){
+      await bgAudio.play();
+      audioToggleBtn.textContent="🔇 Pause Audio";
+      userAudioPreference=true;
+      localStorage.setItem('audioOn','true');
+    }else{
       bgAudio.pause();
-      audioToggleBtn.style.display = "none";
-      stillBtn.style.display = "none";
-      whiteOverlay.style.display = "block";
-      startBtn.style.display = "block";
+      audioToggleBtn.textContent="🔊 Play Audio";
+      userAudioPreference=false;
+      localStorage.setItem('audioOn','false');
     }
+  }catch(err){console.log("Audio play failed",err);}
+});
 
-    startBtn.addEventListener("click", () => {
-      whiteOverlay.style.display = "none";
-      startBtn.style.display = "none";
-      audioToggleBtn.style.display = "block";
-      monitorVideo();
-    });
+// target found
+targetEl.addEventListener("targetFound", async ()=>{
+  isActive=true;
+  document.querySelector("a-scene").object3D.background=new THREE.Color(0xffffff);
+  preloadVideo(videoA);
+  preloadVideo(videoB);
+  activeVideo.play();
+  if(userAudioPreference){try{await bgAudio.play(); audioToggleBtn.textContent="🔇 Pause Audio";}catch{}}
+});
 
-    audioToggleBtn.addEventListener("click", async () => {
-      try {
-        if (bgAudio.paused) {
-          await bgAudio.play();
-          audioToggleBtn.textContent = "🔇 Pause Audio";
-          userAudioPreference = true;
-        } else {
-          bgAudio.pause();
-          audioToggleBtn.textContent = "🔊 Play Audio";
-          userAudioPreference = false;
-        }
-        localStorage.setItem("audioPref", JSON.stringify(userAudioPreference));
-      } catch (err) {
-        console.log("Audio play failed:", err);
-      }
-    });
+// target lost
+targetEl.addEventListener("targetLost", ()=>{
+  isActive=false;
+  document.querySelector("a-scene").object3D.background=null;
+  activeVideo.pause();
+  nextVideo.pause();
+  audioToggleBtn.style.display="none";
+  if(!bgAudio.paused) bgAudio.pause();
+  audioToggleBtn.textContent=userAudioPreference?"🔇 Pause Audio":"🔊 Play Audio";
+});
 
-    targetEl.addEventListener("targetFound", async () => {
-      isActive = true;
-      document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
-      preloadVideo(videoA);
-      preloadVideo(videoB);
-      activeVideo.play();
-      if (userAudioPreference) {
-        try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
-      }
-    });
+// pause on tab inactive
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){
+    activeVideo.pause();
+    nextVideo.pause();
+    if(!bgAudio.paused) bgAudio.pause();
+    isActive=false;
+  }
+});
 
-    targetEl.addEventListener("targetLost", () => {
-      isActive = false;
-      document.querySelector("a-scene").object3D.background = null;
-      activeVideo.pause();
-      nextVideo.pause();
-      if (!bgAudio.paused) bgAudio.pause();
-      audioToggleBtn.style.display = "none";
-    });
+// reset on device lock (optional)
+window.addEventListener('blur', ()=>{
+  whiteOverlay.style.display="block";
+  startBtn.style.display="block";
+  audioToggleBtn.style.display="none";
+  isActive=false;
+  activeVideo.pause();
+  nextVideo.pause();
+  if(!bgAudio.paused) bgAudio.pause();
+});
 
-    // Pause everything if user switches tabs or device locks
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden) {
-        resetAR();
-      }
-    });
-  </script>
+</script>
 </body>
 </html>
