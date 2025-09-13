@@ -31,7 +31,18 @@
       padding: 0.5em 1em;
       font-size: 16px;
       cursor: pointer;
-      display: none; /* hidden until first targetFound */
+      display: none; /* hidden initially */
+    }
+    #stillWatching {
+      position: fixed;
+      bottom: 15%;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      padding: 1em 2em;
+      font-size: 18px;
+      cursor: pointer;
+      display: none;
     }
   </style>
 </head>
@@ -39,6 +50,7 @@
   <div id="whiteOverlay"></div>
   <button id="startAR">Start AR</button>
   <button id="audioToggle">🔊 Play Audio</button>
+  <button id="stillWatching">Still Watching?</button>
 
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
@@ -74,6 +86,7 @@
     const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
     const audioToggleBtn = document.getElementById("audioToggle");
+    const stillWatchingBtn = document.getElementById("stillWatching");
     const videoPlane = document.getElementById("videoPlane");
     const targetEl = document.getElementById("target0");
     const videoA = document.getElementById("videoA");
@@ -81,12 +94,14 @@
     const bgAudio = document.getElementById("bgAudio");
 
     const TOTAL_VIDEOS = 60;
+    const MAX_LOOPS = 10; // show Still Watching prompt every 10 loops
     let lastIndex = -1;
     let activeVideo = videoA;
     let nextVideo = videoB;
     let isActive = false;
     let userAudioPreference = true;
-    let firstTargetFound = false;
+    let loopCounter = 0;
+    let audioButtonShown = false;
 
     function pickRandomIndex() {
       let idx;
@@ -111,6 +126,14 @@
       nextVideo.play();
       [activeVideo, nextVideo] = [nextVideo, activeVideo];
       preloadVideo(nextVideo);
+
+      loopCounter++;
+      if (loopCounter >= MAX_LOOPS) {
+        isActive = false;
+        activeVideo.pause();
+        nextVideo.pause();
+        stillWatchingBtn.style.display = "block";
+      }
     }
 
     function monitorVideo() {
@@ -146,16 +169,26 @@
       }
     });
 
+    stillWatchingBtn.addEventListener("click", () => {
+      loopCounter = 0;
+      isActive = true;
+      activeVideo.play();
+      if (userAudioPreference) bgAudio.play();
+      stillWatchingBtn.style.display = "none";
+    });
+
     targetEl.addEventListener("targetFound", async () => {
       isActive = true;
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
       preloadVideo(videoA);
       preloadVideo(videoB);
       activeVideo.play();
-      if (!firstTargetFound) {
+
+      if (!audioButtonShown) {
         audioToggleBtn.style.display = "block";
-        firstTargetFound = true;
+        audioButtonShown = true;
       }
+
       if (userAudioPreference) {
         try {
           await bgAudio.play();
@@ -173,37 +206,13 @@
       audioToggleBtn.textContent = userAudioPreference ? "🔇 Pause Audio" : "🔊 Play Audio";
     });
 
-    // === Pause/Resume logic when tab/window hidden ===
-    let hiddenAt = null;
+    // 🔒 Pause everything when the tab/window is hidden
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") {
-        hiddenAt = Date.now();
-        [videoA, videoB].forEach(v => { if (!v.paused) v.pause(); });
+        isActive = false;
+        activeVideo.pause();
+        nextVideo.pause();
         if (!bgAudio.paused) bgAudio.pause();
-      } else if (document.visibilityState === "visible") {
-        const awayTime = hiddenAt ? Date.now() - hiddenAt : 0;
-        hiddenAt = null;
-
-        if (awayTime > 5 * 60 * 1000) {
-          // Reset after >5 minutes
-          console.log("Resetting AR session after long away time...");
-          isActive = false;
-          lastIndex = -1;
-          [videoA, videoB].forEach(v => {
-            v.pause();
-            v.removeAttribute("src");
-            v.load();
-          });
-          document.querySelector("a-scene").object3D.background = null;
-        } else {
-          // Resume if active
-          if (isActive) {
-            activeVideo.play().catch(() => {});
-            if (userAudioPreference) {
-              bgAudio.play().catch(() => {});
-            }
-          }
-        }
       }
     });
   </script>
