@@ -22,7 +22,7 @@
       z-index: 10;
     }
 
-    #startAR, #restartAR {
+    #startAR {
       position: fixed;
       top: 40%;
       left: 50%;
@@ -31,10 +31,6 @@
       padding: 1em 2em;
       font-size: 18px;
       cursor: pointer;
-    }
-
-    #restartAR {
-      display: none;
     }
 
     #audioToggle {
@@ -75,7 +71,6 @@
 <body>
   <div id="whiteOverlay"></div>
   <button id="startAR">Start AR</button>
-  <button id="restartAR">Restart AR</button>
   <button id="audioToggle">🔊 Play Audio</button>
 
   <div id="stillWatchingContainer">
@@ -109,7 +104,6 @@
   <script>
     const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
-    const restartBtn = document.getElementById("restartAR");
     const audioToggleBtn = document.getElementById("audioToggle");
     const stillWatchingContainer = document.getElementById("stillWatchingContainer");
     const stillWatchingBtn = document.getElementById("stillWatchingBtn");
@@ -118,6 +112,38 @@
     const targetEl = document.getElementById("target0");
     const videoA = document.getElementById("videoA");
     const videoB = document.getElementById("videoB");
+
+    // Web Audio API setup
+    let audioCtx, audioBuffer, audioSource;
+    let audioLoaded = false;
+    let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
+
+    async function loadAudioOnce() {
+      if (audioLoaded) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const response = await fetch("./assets/audio/background.mp3");
+      const arrayBuffer = await response.arrayBuffer();
+      audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      audioLoaded = true;
+    }
+
+    function playAudio() {
+      if (!audioBuffer) return;
+      stopAudio(); // stop any existing playback
+      audioSource = audioCtx.createBufferSource();
+      audioSource.buffer = audioBuffer;
+      audioSource.loop = true;
+      audioSource.connect(audioCtx.destination);
+      audioSource.start();
+    }
+
+    function stopAudio() {
+      if (audioSource) {
+        try { audioSource.stop(); } catch {}
+        audioSource.disconnect();
+        audioSource = null;
+      }
+    }
 
     const TOTAL_VIDEOS = 60;
     let lastIndex = -1;
@@ -129,15 +155,6 @@
     // Still watching variables
     let loopCount = 0;
     const LOOP_LIMIT = 3;
-
-    // Resume positions
-    let savedVideoTime = 0;
-    let audioCtx, audioBuffer, audioSource;
-    let audioLoaded = false;
-    let audioStartTime = 0;
-    let audioOffset = 0;
-
-    let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
 
     function pickRandomIndex() {
       let idx;
@@ -194,14 +211,12 @@
 
     async function handleTargetFound() {
       if (!startClicked) return;
-
       isActive = true;
       videoPlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
-
-      activeVideo.currentTime = savedVideoTime || 0;
+      preloadVideo(videoA);
+      preloadVideo(videoB);
       activeVideo.play();
-
       if (userAudioPreference) {
         playAudio();
         audioToggleBtn.textContent = "🔇 Pause Audio";
@@ -209,67 +224,20 @@
       audioToggleBtn.style.display = "block";
     }
 
-    // Web Audio API
-    async function loadAudioOnce() {
-      if (audioLoaded) return;
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const response = await fetch("./assets/audio/background.mp3");
-      const arrayBuffer = await response.arrayBuffer();
-      audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-      audioLoaded = true;
-    }
-
-    function playAudio() {
-      if (!audioBuffer) return;
-      stopAudio();
-      audioSource = audioCtx.createBufferSource();
-      audioSource.buffer = audioBuffer;
-      audioSource.loop = true;
-      audioSource.connect(audioCtx.destination);
-
-      audioStartTime = audioCtx.currentTime - audioOffset;
-      audioSource.start(0, audioOffset % audioBuffer.duration);
-    }
-
-    function stopAudio() {
-      if (audioSource) {
-        try {
-          audioSource.stop();
-          audioOffset = (audioCtx.currentTime - audioStartTime) % audioBuffer.duration;
-        } catch {}
-        audioSource.disconnect();
-        audioSource = null;
-      }
-    }
-
-    // Start AR
     startBtn.addEventListener("click", async () => {
-      await loadAudioOnce();
       startClicked = true;
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
-      restartBtn.style.display = "none";
       videoPlane.setAttribute("visible", false);
+
+      await loadAudioOnce(); // preload audio only once
       monitorVideo();
     });
 
-    // Restart AR
-    restartBtn.addEventListener("click", () => {
-      savedVideoTime = 0;
-      audioOffset = 0;
-      startClicked = true;
-      whiteOverlay.style.display = "none";
-      startBtn.style.display = "none";
-      restartBtn.style.display = "none";
-      videoPlane.setAttribute("visible", false);
-      monitorVideo();
-    });
-
-    // Toggle Audio
     audioToggleBtn.addEventListener("click", async () => {
       try {
         if (!audioSource) {
-          await playAudio();
+          playAudio();
           audioToggleBtn.textContent = "🔇 Pause Audio";
           userAudioPreference = true;
         } else {
@@ -286,9 +254,6 @@
     targetEl.addEventListener("targetFound", handleTargetFound);
 
     targetEl.addEventListener("targetLost", () => {
-      if (isActive) {
-        savedVideoTime = activeVideo.currentTime;
-      }
       isActive = false;
       videoPlane.setAttribute("visible", false);
       document.querySelector("a-scene").object3D.background = null;
@@ -303,15 +268,13 @@
       if (document.hidden) {
         isActive = false;
         startClicked = false;
-        savedVideoTime = 0;
-        audioOffset = 0;
         activeVideo.pause();
         nextVideo.pause();
         stopAudio();
         audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
         whiteOverlay.style.display = "block";
-        restartBtn.style.display = "block";
+        startBtn.style.display = "block";
         videoPlane.setAttribute("visible", false);
       }
     });
