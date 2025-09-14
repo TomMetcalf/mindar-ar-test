@@ -70,13 +70,13 @@
     const LOOP_LIMIT = 3;
     let targetCurrentlyVisible = false;
 
-    // User audio preference
+    // --- User audio preference ---
     let userAudioPreference;
     const storedPref = localStorage.getItem("userAudioPref");
-    if (storedPref === null) userAudioPreference = true;
-    else userAudioPreference = storedPref !== "false";
+    if (storedPref === null) { userAudioPreference = true; } 
+    else { userAudioPreference = storedPref !== "false"; }
 
-    // Web Audio API
+    // --- Web Audio API ---
     let audioCtx, audioBuffer, audioSource;
     let audioLoaded = false;
     let audioStartTime = 0;
@@ -135,6 +135,28 @@
     }
     prewarmVideos();
 
+    // --- Camera prewarm for incognito ---
+    let cameraUnlocked = false;
+    async function prewarmCamera() {
+      if (cameraUnlocked) return;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        const dummy = document.createElement("video");
+        dummy.srcObject = stream;
+        dummy.muted = true;
+        dummy.playsInline = true;
+        document.body.appendChild(dummy);
+        await dummy.play();
+        dummy.pause();
+        stream.getTracks().forEach(track => track.stop());
+        dummy.remove();
+        cameraUnlocked = true;
+        console.log("Camera prewarmed!");
+      } catch (err) {
+        console.warn("Camera prewarm failed:", err);
+      }
+    }
+
     function swapVideo() {
       const flip = Math.random() < 0.5 ? -1 : 1;
       nextPlane.setAttribute("scale", `${flip} 1 1`);
@@ -190,17 +212,6 @@
       audioToggleBtn.style.display = "block";
     }
 
-    // --- INCognito unlock helper ---
-    async function unlockMediaForIncognito() {
-      const dummy = document.createElement("video");
-      dummy.muted = true;
-      dummy.playsInline = true;
-      dummy.src = "data:video/mp4;base64,AAAA..."; // very tiny placeholder
-      document.body.appendChild(dummy);
-      try { await dummy.play(); dummy.pause(); } catch {}
-      dummy.remove();
-    }
-
     startBtn.addEventListener("click", async () => {
       startClicked = true;
       whiteOverlay.style.display = "none";
@@ -208,14 +219,16 @@
       restartBtn.style.display = "none";
       activePlane.setAttribute("visible", false);
 
-      await unlockMediaForIncognito(); // ensure camera/video works in incognito
+      await prewarmCamera(); // Unlock camera for incognito
+
       monitorVideo();
       if (targetCurrentlyVisible) handleTargetFound();
     });
 
-    restartBtn.addEventListener("click", () => {
+    restartBtn.addEventListener("click", async () => {
       whiteOverlay.style.display = "none";
       restartBtn.style.display = "none";
+      await prewarmCamera(); // Ensure camera is ready
       if (targetCurrentlyVisible) handleTargetFound();
     });
 
