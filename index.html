@@ -140,16 +140,19 @@
       videoEl.load();
     }
 
-    // --- Smooth swap without flicker ---
+    // --- Smooth swap with pre-warming ---
     function swapVideo() {
       const flip = Math.random() < 0.5;
       videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
 
-      // Immediately swap the material
-      videoPlane.setAttribute("material", "src", nextVideo);
-
+      // Pre-warm nextVideo before swapping
       nextVideo.currentTime = 0;
       nextVideo.play();
+
+      // Swap material on next animation frame
+      requestAnimationFrame(() => {
+        videoPlane.setAttribute("material", "src", nextVideo);
+      });
 
       [activeVideo, nextVideo] = [nextVideo, activeVideo];
       preloadVideo(nextVideo);
