@@ -60,6 +60,10 @@
 
     const TOTAL_VIDEOS = 60;
     let lastIndex = -1;
+    let activeVideo = videoA;
+    let activePlane = videoPlaneA;
+    let nextVideo = videoB;
+    let nextPlane = videoPlaneB;
     let isActive = false;
     let startClicked = false;
     let loopCount = 0;
@@ -69,8 +73,11 @@
     // --- User audio preference ---
     let userAudioPreference;
     const storedPref = localStorage.getItem("userAudioPref");
-    if (storedPref === null) { userAudioPreference = true; } // first visit: autoplay on target found
-    else { userAudioPreference = storedPref !== "false"; }
+    if (storedPref === null) {
+      userAudioPreference = true; // first visit: auto-play on target found
+    } else {
+      userAudioPreference = storedPref !== "false";
+    }
 
     // --- Web Audio API ---
     let audioCtx, audioBuffer, audioSource;
@@ -108,7 +115,6 @@
       audioToggleBtn.textContent = "🔇";
     }
 
-    // Reflect audio state immediately on load
     audioToggleBtn.textContent = userAudioPreference ? "🔊" : "🔇";
 
     function pickRandomIndex() {
@@ -121,42 +127,30 @@
     function preloadVideo(videoEl) {
       const idx = pickRandomIndex();
       videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
-      videoEl.currentTime = 0;
       videoEl.load();
     }
 
-    // prewarm first two videos to avoid black flash
-    [videoA, videoB].forEach(v => { v.currentTime = 0; v.play(); v.pause(); });
+    // Preload videos only; don't play at load
     preloadVideo(videoA);
     preloadVideo(videoB);
 
-    let videoState = {
-      activeVideo: videoA,
-      nextVideo: videoB,
-      activePlane: videoPlaneA,
-      nextPlane: videoPlaneB,
-      activeTime: 0,
-      nextTime: 0
-    };
-
     function swapVideo() {
       const flip = Math.random() < 0.5 ? -1 : 1;
-      videoState.nextPlane.setAttribute("scale", `${flip} 1 1`);
-      videoState.nextPlane.setAttribute("visible", true);
-      videoState.activePlane.setAttribute("visible", false);
-      videoState.nextVideo.currentTime = 0;
-      videoState.nextVideo.play();
-      [videoState.activeVideo, videoState.nextVideo] = [videoState.nextVideo, videoState.activeVideo];
-      [videoState.activePlane, videoState.nextPlane] = [videoState.nextPlane, videoState.activePlane];
-      preloadVideo(videoState.nextVideo);
+      nextPlane.setAttribute("scale", `${flip} 1 1`);
+      nextPlane.setAttribute("visible", true);
+      activePlane.setAttribute("visible", false);
+      nextVideo.currentTime = 0;
+      nextVideo.play();
+      [activeVideo, nextVideo] = [nextVideo, activeVideo];
+      [activePlane, nextPlane] = [nextPlane, activePlane];
+      preloadVideo(nextVideo);
 
       loopCount++;
       if (loopCount >= LOOP_LIMIT) showStillWatching();
     }
 
     function monitorVideo() {
-      if (isActive && videoState.activeVideo.duration > 0 &&
-          videoState.activeVideo.currentTime >= videoState.activeVideo.duration - 0.05) {
+      if (isActive && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration - 0.05) {
         swapVideo();
       }
       requestAnimationFrame(monitorVideo);
@@ -164,8 +158,8 @@
 
     function showStillWatching() {
       isActive = false;
-      videoState.activeVideo.pause();
-      videoState.nextVideo.pause();
+      activeVideo.pause();
+      nextVideo.pause();
       stopAudio();
       audioToggleBtn.style.display = "none";
       stillWatchingContainer.style.display = "flex";
@@ -175,8 +169,9 @@
       stillWatchingContainer.style.display = "none";
       loopCount = 0;
       isActive = true;
-      videoState.activeVideo.play();
-      videoState.activePlane.setAttribute("visible", true);
+      activePlane.setAttribute("visible", true);
+      activeVideo.currentTime = audioOffset; // sync
+      activeVideo.play();
       if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
       audioToggleBtn.style.display = "block";
     });
@@ -184,12 +179,14 @@
     async function handleTargetFound() {
       if (!startClicked) return;
       isActive = true;
-      videoState.activePlane.setAttribute("visible", true);
+      activePlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
 
-      if (!videoState.activeVideo.src) { preloadVideo(videoState.activeVideo); preloadVideo(videoState.nextVideo); }
+      if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
 
-      videoState.activeVideo.play();
+      activeVideo.currentTime = audioOffset; // sync video with audio
+      activeVideo.play();
+
       if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
 
       audioToggleBtn.style.display = "block";
@@ -200,23 +197,15 @@
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
       restartBtn.style.display = "none";
-      videoState.activePlane.setAttribute("visible", false);
+      activePlane.setAttribute("visible", false);
       monitorVideo();
       if (targetCurrentlyVisible) handleTargetFound();
     });
 
-    restartBtn.addEventListener("click", async () => {
+    restartBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       restartBtn.style.display = "none";
-
-      videoState.activeVideo.currentTime = videoState.activeTime;
-      videoState.nextVideo.currentTime = videoState.nextTime;
-      videoState.activePlane.setAttribute("visible", true);
-      videoState.nextPlane.setAttribute("visible", false);
-
-      if (audioState.playing && userAudioPreference) { await loadAudioOnce(); audioOffset = audioState.offset; playAudio(); }
-
-      isActive = true;
+      if (targetCurrentlyVisible) handleTargetFound();
     });
 
     audioToggleBtn.addEventListener("click", async () => {
@@ -234,11 +223,11 @@
     targetEl.addEventListener("targetLost", () => {
       targetCurrentlyVisible = false;
       isActive = false;
-      videoState.activePlane.setAttribute("visible", false);
-      videoState.nextPlane.setAttribute("visible", false);
+      activePlane.setAttribute("visible", false);
+      nextPlane.setAttribute("visible", false);
       document.querySelector("a-scene").object3D.background = null;
-      videoState.activeVideo.pause();
-      videoState.nextVideo.pause();
+      activeVideo.pause();
+      nextVideo.pause();
       stopAudio();
       audioToggleBtn.style.display = "none";
     });
@@ -246,22 +235,13 @@
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         isActive = false;
-        videoState.activeVideo.pause();
-        videoState.nextVideo.pause();
-        videoState.activeTime = videoState.activeVideo.currentTime;
-        videoState.nextTime = videoState.nextVideo.currentTime;
-
-        if (audioSource) {
-          audioState.offset = (audioCtx.currentTime - audioStartTime) % audioBuffer.duration;
-          audioState.playing = true;
-          stopAudio();
-        } else { audioState.playing = false; }
-
+        activeVideo.pause();
+        nextVideo.pause();
+        stopAudio();
         audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
-        videoState.activePlane.setAttribute("visible", false);
-        videoState.nextPlane.setAttribute("visible", false);
-
+        activePlane.setAttribute("visible", false);
+        nextPlane.setAttribute("visible", false);
       } else {
         whiteOverlay.style.display = "block";
         startBtn.style.display = "none";
