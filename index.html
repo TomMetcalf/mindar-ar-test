@@ -141,13 +141,29 @@
       videoEl.load();
     }
 
+    // --- Swap video smoothly without black flash ---
     function swapVideo() {
       const flip = Math.random() < 0.5;
       videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
-      videoPlane.setAttribute("material", "src", nextVideo);
+
+      // Pause current video
+      activeVideo.pause();
+
+      // Start next video
+      nextVideo.currentTime = 0;
       nextVideo.play();
-      [activeVideo, nextVideo] = [nextVideo, activeVideo];
-      preloadVideo(nextVideo);
+
+      function showWhenReady() {
+        if (nextVideo.currentTime > 0) {
+          // Update plane only when next video has started
+          videoPlane.setAttribute("material", "src", nextVideo);
+          [activeVideo, nextVideo] = [nextVideo, activeVideo];
+          preloadVideo(nextVideo);
+        } else {
+          requestAnimationFrame(showWhenReady);
+        }
+      }
+      showWhenReady();
 
       loopCount++;
       if (loopCount >= LOOP_LIMIT) showStillWatching();
