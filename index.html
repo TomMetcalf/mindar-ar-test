@@ -29,13 +29,13 @@
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
 
-  <a-scene id="arScene"
-           mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
-           color-space="sRGB"
-           renderer="colorManagement: true, physicallyCorrectLights"
-           vr-mode-ui="enabled: false"
-           device-orientation-permission-ui="enabled: false"
-           framerate="12"
+  <a-scene id="arScene" 
+           mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1" 
+           color-space="sRGB" 
+           renderer="colorManagement: true, physicallyCorrectLights" 
+           vr-mode-ui="enabled: false" 
+           device-orientation-permission-ui="enabled: false" 
+           framerate="12" 
            look-at="[camera]">
     <a-camera id="camera" position="0 0 0" look-controls="enabled: false"></a-camera>
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
@@ -51,7 +51,6 @@
     const audioToggleBtn = document.getElementById("audioToggle");
     const stillWatchingContainer = document.getElementById("stillWatchingContainer");
     const stillWatchingBtn = document.getElementById("stillWatchingBtn");
-
     const videoPlaneA = document.getElementById("videoPlaneA");
     const videoPlaneB = document.getElementById("videoPlaneB");
     const targetEl = document.getElementById("target0");
@@ -99,29 +98,32 @@
       unlockSource.stop();
     }
 
-    // Prewarm camera to avoid incognito hang
+    // Prewarm camera
     const camera = document.getElementById("camera");
     camera.object3D.visible = false;
     setTimeout(() => { camera.object3D.visible = true; }, 50);
 
-    // Prewarm videos
+    // Preload videos
     function pickRandomIndex() {
       let idx;
       do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
       lastIndex = idx;
       return idx;
     }
+
     function preloadVideo(videoEl) {
       const idx = pickRandomIndex();
       videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
       videoEl.currentTime = 0;
       videoEl.load();
     }
+
     function prewarmVideos() {
       [videoA, videoB].forEach(v => { v.currentTime = 0; v.play(); v.pause(); });
       preloadVideo(videoA);
       preloadVideo(videoB);
     }
+
     prewarmVideos();
     prewarmAudio();
 
@@ -189,14 +191,11 @@
     });
 
     async function handleTargetFound() {
-      if (!startClicked || document.hidden) return;
-
+      if (!startClicked) return;
       isActive = true;
       activePlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
-
       if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
-
       activeVideo.play();
       if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
       audioToggleBtn.style.display = "block";
@@ -243,10 +242,7 @@
     });
 
     document.addEventListener("visibilitychange", () => {
-      const arSystem = document.querySelector("a-scene").systems["mindar-image-system"];
-
       if (document.hidden) {
-        // Stop everything
         isActive = false;
         activeVideo.pause();
         nextVideo.pause();
@@ -255,13 +251,7 @@
         stillWatchingContainer.style.display = "none";
         activePlane.setAttribute("visible", false);
         nextPlane.setAttribute("visible", false);
-
-        // Stop camera
-        if (arSystem && arSystem.arController) {
-          arSystem.arController.stop();
-        }
       } else {
-        // Show restart UI without auto-play
         whiteOverlay.style.display = "block";
         startBtn.style.display = "none";
         restartBtn.style.display = "block";
