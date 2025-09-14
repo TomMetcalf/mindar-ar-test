@@ -6,71 +6,36 @@
   <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      font-family: sans-serif;
-    }
-
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
     #whiteOverlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: white;
-      z-index: 10;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background-color: white; z-index: 10;
     }
-
-    #startAR {
-      position: fixed;
-      top: 40%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 20;
-      padding: 1em 2em;
-      font-size: 18px;
-      cursor: pointer;
+    #startAR, #restartAR {
+      position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+      z-index: 20; padding: 1em 2em; font-size: 18px; cursor: pointer;
     }
-
+    #restartAR { display: none; }
     #audioToggle {
-      position: fixed;
-      bottom: 5%;
-      right: 5%;
-      z-index: 20;
-      padding: 0.5em 1em;
-      font-size: 16px;
-      cursor: pointer;
-      display: none;
+      position: fixed; bottom: 5%; right: 5%;
+      z-index: 20; padding: 0.5em 1em; font-size: 16px;
+      cursor: pointer; display: none;
     }
-
     #stillWatchingContainer {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: white;
-      z-index: 50;
-      display: none;
-      align-items: center;
-      justify-content: center;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: white; z-index: 50; display: none;
+      align-items: center; justify-content: center;
     }
-
     #stillWatchingBtn {
-      padding: 1em 2em;
-      font-size: 18px;
-      cursor: pointer;
+      padding: 1em 2em; font-size: 18px; cursor: pointer;
     }
-
-    #arScene {
-      display: block;
-    }
+    #arScene { display: block; }
   </style>
 </head>
 <body>
   <div id="whiteOverlay"></div>
   <button id="startAR">Start AR</button>
+  <button id="restartAR">Restart AR</button>
   <button id="audioToggle">🔊 Play Audio</button>
 
   <div id="stillWatchingContainer">
@@ -79,6 +44,10 @@
 
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
+
+  <audio id="bgAudio" loop playsinline>
+    <source src="./assets/audio/background.mp3" type="audio/mpeg">
+  </audio>
 
   <a-scene id="arScene"
            mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
@@ -91,11 +60,8 @@
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
       <a-plane id="videoPlane"
-               width="1.2"
-               height="1.2"
-               position="0 0 0"
-               look-at="[camera]"
-               visible="false"
+               width="1.2" height="1.2" position="0 0 0"
+               look-at="[camera]" visible="false"
                material="shader: flat; src: #videoA">
       </a-plane>
     </a-entity>
@@ -104,6 +70,7 @@
   <script>
     const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
+    const restartBtn = document.getElementById("restartAR");
     const audioToggleBtn = document.getElementById("audioToggle");
     const stillWatchingContainer = document.getElementById("stillWatchingContainer");
     const stillWatchingBtn = document.getElementById("stillWatchingBtn");
@@ -112,38 +79,7 @@
     const targetEl = document.getElementById("target0");
     const videoA = document.getElementById("videoA");
     const videoB = document.getElementById("videoB");
-
-    // Web Audio API setup
-    let audioCtx, audioBuffer, audioSource;
-    let audioLoaded = false;
-    let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
-
-    async function loadAudioOnce() {
-      if (audioLoaded) return;
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const response = await fetch("./assets/audio/background.mp3");
-      const arrayBuffer = await response.arrayBuffer();
-      audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-      audioLoaded = true;
-    }
-
-    function playAudio() {
-      if (!audioBuffer) return;
-      stopAudio(); // stop any existing playback
-      audioSource = audioCtx.createBufferSource();
-      audioSource.buffer = audioBuffer;
-      audioSource.loop = true;
-      audioSource.connect(audioCtx.destination);
-      audioSource.start();
-    }
-
-    function stopAudio() {
-      if (audioSource) {
-        try { audioSource.stop(); } catch {}
-        audioSource.disconnect();
-        audioSource = null;
-      }
-    }
+    const bgAudio = document.getElementById("bgAudio");
 
     const TOTAL_VIDEOS = 60;
     let lastIndex = -1;
@@ -152,9 +88,10 @@
     let isActive = false;
     let startClicked = false;
 
-    // Still watching variables
     let loopCount = 0;
     const LOOP_LIMIT = 3;
+    let targetCurrentlyVisible = false;
+    let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
 
     function pickRandomIndex() {
       let idx;
@@ -185,7 +122,8 @@
     }
 
     function monitorVideo() {
-      if (isActive && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration - 0.05) {
+      if (isActive && activeVideo.duration > 0 &&
+          activeVideo.currentTime >= activeVideo.duration - 0.05) {
         swapVideo();
       }
       requestAnimationFrame(monitorVideo);
@@ -195,7 +133,7 @@
       isActive = false;
       activeVideo.pause();
       nextVideo.pause();
-      stopAudio();
+      bgAudio.pause();
       audioToggleBtn.style.display = "none";
       stillWatchingContainer.style.display = "flex";
     }
@@ -205,7 +143,7 @@
       loopCount = 0;
       isActive = true;
       activeVideo.play();
-      if (userAudioPreference) playAudio();
+      if (userAudioPreference) bgAudio.play();
       audioToggleBtn.style.display = "block";
     });
 
@@ -214,34 +152,44 @@
       isActive = true;
       videoPlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
-      preloadVideo(videoA);
-      preloadVideo(videoB);
+
+      if (!activeVideo.src) {
+        preloadVideo(videoA);
+        preloadVideo(videoB);
+      }
+
       activeVideo.play();
       if (userAudioPreference) {
-        playAudio();
-        audioToggleBtn.textContent = "🔇 Pause Audio";
+        try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
       }
       audioToggleBtn.style.display = "block";
     }
 
-    startBtn.addEventListener("click", async () => {
+    startBtn.addEventListener("click", () => {
       startClicked = true;
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
+      restartBtn.style.display = "none";
       videoPlane.setAttribute("visible", false);
-
-      await loadAudioOnce(); // preload audio only once
       monitorVideo();
+
+      if (targetCurrentlyVisible) handleTargetFound();
+    });
+
+    restartBtn.addEventListener("click", () => {
+      whiteOverlay.style.display = "none";
+      restartBtn.style.display = "none";
+      if (targetCurrentlyVisible) handleTargetFound();
     });
 
     audioToggleBtn.addEventListener("click", async () => {
       try {
-        if (!audioSource) {
-          playAudio();
+        if (bgAudio.paused) {
+          await bgAudio.play();
           audioToggleBtn.textContent = "🔇 Pause Audio";
           userAudioPreference = true;
         } else {
-          stopAudio();
+          bgAudio.pause();
           audioToggleBtn.textContent = "🔊 Play Audio";
           userAudioPreference = false;
         }
@@ -251,31 +199,38 @@
       }
     });
 
-    targetEl.addEventListener("targetFound", handleTargetFound);
+    targetEl.addEventListener("targetFound", () => {
+      targetCurrentlyVisible = true;
+      if (startClicked) handleTargetFound();
+    });
 
     targetEl.addEventListener("targetLost", () => {
+      targetCurrentlyVisible = false;
       isActive = false;
       videoPlane.setAttribute("visible", false);
       document.querySelector("a-scene").object3D.background = null;
       activeVideo.pause();
       nextVideo.pause();
-      stopAudio();
+      if (!bgAudio.paused) bgAudio.pause();
       audioToggleBtn.style.display = "none";
     });
 
-    // Pause everything on tab switch / screen lock
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         isActive = false;
-        startClicked = false;
         activeVideo.pause();
         nextVideo.pause();
-        stopAudio();
+        bgAudio.pause();
         audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
-        whiteOverlay.style.display = "block";
-        startBtn.style.display = "block";
         videoPlane.setAttribute("visible", false);
+      } else {
+        // Show Restart AR overlay only
+        whiteOverlay.style.display = "block";
+        startBtn.style.display = "none";
+        restartBtn.style.display = "block";
+        audioToggleBtn.style.display = "none";
+        stillWatchingContainer.style.display = "none";
       }
     });
   </script>
