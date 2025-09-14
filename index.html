@@ -73,11 +73,8 @@
     // --- User audio preference ---
     let userAudioPreference;
     const storedPref = localStorage.getItem("userAudioPref");
-    if (storedPref === null) {
-      userAudioPreference = true; // first visit: auto-play on target found
-    } else {
-      userAudioPreference = storedPref !== "false";
-    }
+    if (storedPref === null) { userAudioPreference = true; } // first visit: auto-play on target found
+    else { userAudioPreference = storedPref !== "false"; }
 
     // --- Web Audio API ---
     let audioCtx, audioBuffer, audioSource;
@@ -115,7 +112,6 @@
       audioToggleBtn.textContent = "🔇";
     }
 
-    // Reflect audio state immediately on load
     audioToggleBtn.textContent = userAudioPreference ? "🔊" : "🔇";
 
     function pickRandomIndex() {
@@ -138,6 +134,14 @@
       preloadVideo(videoB);
     }
     prewarmVideos();
+
+    // --- New function to fix hanging in Incognito ---
+    async function prewarmCamera() {
+      try {
+        await videoA.play(); videoA.pause();
+        await videoB.play(); videoB.pause();
+      } catch(err) { console.log("Camera prewarm failed:", err); }
+    }
 
     function swapVideo() {
       const flip = Math.random() < 0.5 ? -1 : 1;
@@ -195,12 +199,15 @@
       audioToggleBtn.style.display = "block";
     }
 
-    startBtn.addEventListener("click", () => {
+    startBtn.addEventListener("click", async () => {
       startClicked = true;
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
       restartBtn.style.display = "none";
       activePlane.setAttribute("visible", false);
+
+      await prewarmCamera();   // <--- Fix for Incognito hanging
+
       monitorVideo();
       if (targetCurrentlyVisible) handleTargetFound();
     });
