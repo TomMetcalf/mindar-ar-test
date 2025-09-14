@@ -73,7 +73,7 @@
     // User audio preference
     let userAudioPreference;
     const storedPref = localStorage.getItem("userAudioPref");
-    if (storedPref === null) { userAudioPreference = true; }
+    if (storedPref === null) { userAudioPreference = true; } // first visit: auto-play
     else { userAudioPreference = storedPref !== "false"; }
 
     // Web Audio API
@@ -100,7 +100,7 @@
       unlockSource.stop();
     }
 
-    // Prewarm camera to avoid first-load hang
+    // Prewarm camera to avoid incognito hang
     const camera = document.getElementById("camera");
     camera.object3D.visible = false;
     setTimeout(() => { camera.object3D.visible = true; }, 50);
@@ -189,34 +189,15 @@
 
     async function handleTargetFound() {
       if (!startClicked) return;
-      targetCurrentlyVisible = true;
       isActive = true;
       activePlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
 
       if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
-
-      activeVideo.currentTime = 0;
       activeVideo.play();
-
       if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
-
       audioToggleBtn.style.display = "block";
     }
-
-    targetEl.addEventListener("targetFound", handleTargetFound);
-
-    targetEl.addEventListener("targetLost", () => {
-      targetCurrentlyVisible = false;
-      isActive = false;
-      activePlane.setAttribute("visible", false);
-      nextPlane.setAttribute("visible", false);
-      document.querySelector("a-scene").object3D.background = null;
-      activeVideo.pause();
-      nextVideo.pause();
-      stopAudio();
-      audioToggleBtn.style.display = "none";
-    });
 
     startBtn.addEventListener("click", () => {
       startClicked = true;
@@ -241,9 +222,25 @@
       localStorage.setItem("userAudioPref", userAudioPreference);
     });
 
+    targetEl.addEventListener("targetFound", () => {
+      targetCurrentlyVisible = true;
+      if (startClicked) handleTargetFound();
+    });
+
+    targetEl.addEventListener("targetLost", () => {
+      targetCurrentlyVisible = false;
+      isActive = false;
+      activePlane.setAttribute("visible", false);
+      nextPlane.setAttribute("visible", false);
+      document.querySelector("a-scene").object3D.background = null;
+      activeVideo.pause();
+      nextVideo.pause();
+      stopAudio();
+      audioToggleBtn.style.display = "none";
+    });
+
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
-        // Stop this instance of camera, video, and audio
         isActive = false;
         activeVideo.pause();
         nextVideo.pause();
@@ -253,7 +250,6 @@
         activePlane.setAttribute("visible", false);
         nextPlane.setAttribute("visible", false);
       } else {
-        // Show overlay and restart option when tab becomes active
         whiteOverlay.style.display = "block";
         startBtn.style.display = "none";
         restartBtn.style.display = "block";
