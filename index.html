@@ -73,11 +73,8 @@
     // --- User audio preference ---
     let userAudioPreference;
     const storedPref = localStorage.getItem("userAudioPref");
-    if (storedPref === null) {
-      userAudioPreference = true; // first visit: auto-play on target found
-    } else {
-      userAudioPreference = storedPref !== "false";
-    }
+    if (storedPref === null) { userAudioPreference = true; } // first visit: auto-play on target found
+    else { userAudioPreference = storedPref !== "false"; }
 
     // --- Web Audio API ---
     let audioCtx, audioBuffer, audioSource;
@@ -93,6 +90,17 @@
       audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
       audioLoaded = true;
     }
+
+    // Prewarm audio for seamless first playback
+    async function prewarmAudio() {
+      await loadAudioOnce();
+      const unlockSource = audioCtx.createBufferSource();
+      unlockSource.buffer = audioBuffer;
+      unlockSource.connect(audioCtx.destination);
+      try { unlockSource.start(0); } catch {}
+      unlockSource.stop();
+    }
+    prewarmAudio();
 
     function playAudio() {
       if (!audioBuffer) return;
@@ -127,12 +135,16 @@
     function preloadVideo(videoEl) {
       const idx = pickRandomIndex();
       videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
+      videoEl.currentTime = 0;
       videoEl.load();
     }
 
-    // Preload videos only; don't play at load
-    preloadVideo(videoA);
-    preloadVideo(videoB);
+    function prewarmVideos() {
+      [videoA, videoB].forEach(v => { v.currentTime = 0; v.play(); v.pause(); });
+      preloadVideo(videoA);
+      preloadVideo(videoB);
+    }
+    prewarmVideos();
 
     function swapVideo() {
       const flip = Math.random() < 0.5 ? -1 : 1;
@@ -169,9 +181,8 @@
       stillWatchingContainer.style.display = "none";
       loopCount = 0;
       isActive = true;
-      activePlane.setAttribute("visible", true);
-      activeVideo.currentTime = audioOffset; // sync
       activeVideo.play();
+      activePlane.setAttribute("visible", true);
       if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
       audioToggleBtn.style.display = "block";
     });
@@ -184,9 +195,7 @@
 
       if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
 
-      activeVideo.currentTime = audioOffset; // sync video with audio
       activeVideo.play();
-
       if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
 
       audioToggleBtn.style.display = "block";
