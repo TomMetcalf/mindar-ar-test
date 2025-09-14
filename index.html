@@ -29,13 +29,13 @@
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
 
-  <a-scene id="arScene"
-           mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
-           color-space="sRGB"
-           renderer="colorManagement: true, physicallyCorrectLights"
-           vr-mode-ui="enabled: false"
-           device-orientation-permission-ui="enabled: false"
-           framerate="12"
+  <a-scene id="arScene" 
+           mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1" 
+           color-space="sRGB" 
+           renderer="colorManagement: true, physicallyCorrectLights" 
+           vr-mode-ui="enabled: false" 
+           device-orientation-permission-ui="enabled: false" 
+           framerate="12" 
            look-at="[camera]">
     <a-camera id="camera" position="0 0 0" look-controls="enabled: false"></a-camera>
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
@@ -51,7 +51,6 @@
     const audioToggleBtn = document.getElementById("audioToggle");
     const stillWatchingContainer = document.getElementById("stillWatchingContainer");
     const stillWatchingBtn = document.getElementById("stillWatchingBtn");
-
     const videoPlaneA = document.getElementById("videoPlaneA");
     const videoPlaneB = document.getElementById("videoPlaneB");
     const targetEl = document.getElementById("target0");
@@ -70,13 +69,12 @@
     const LOOP_LIMIT = 3;
     let targetCurrentlyVisible = false;
 
-    // --- User audio preference ---
+    // User audio preference
     let userAudioPreference;
     const storedPref = localStorage.getItem("userAudioPref");
-    if (storedPref === null) { userAudioPreference = true; }
-    else { userAudioPreference = storedPref !== "false"; }
+    userAudioPreference = storedPref === null ? true : storedPref !== "false";
 
-    // --- Web Audio API ---
+    // Web Audio API
     let audioCtx, audioBuffer, audioSource;
     let audioLoaded = false;
     let audioStartTime = 0;
@@ -100,12 +98,12 @@
       unlockSource.stop();
     }
 
-    // Prewarm camera for first load
+    // Prewarm camera
     const camera = document.getElementById("camera");
     camera.object3D.visible = false;
     setTimeout(() => { camera.object3D.visible = true; }, 50);
 
-    // --- Video preload ---
+    // Preload videos
     function pickRandomIndex() {
       let idx;
       do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
@@ -125,10 +123,10 @@
       preloadVideo(videoA);
       preloadVideo(videoB);
     }
+
     prewarmVideos();
     prewarmAudio();
 
-    // --- Audio controls ---
     function playAudio() {
       if (!audioBuffer) return;
       stopAudio();
@@ -152,7 +150,6 @@
 
     audioToggleBtn.textContent = userAudioPreference ? "🔊" : "🔇";
 
-    // --- Video swap ---
     function swapVideo() {
       const flip = Math.random() < 0.5 ? -1 : 1;
       nextPlane.setAttribute("scale", `${flip} 1 1`);
@@ -193,7 +190,6 @@
       audioToggleBtn.style.display = "block";
     });
 
-    // --- Handle target ---
     async function handleTargetFound() {
       if (!startClicked) return;
       isActive = true;
@@ -205,7 +201,6 @@
       audioToggleBtn.style.display = "block";
     }
 
-    // --- Start / Restart AR ---
     startBtn.addEventListener("click", () => {
       startClicked = true;
       whiteOverlay.style.display = "none";
@@ -246,28 +241,7 @@
       audioToggleBtn.style.display = "none";
     });
 
-    // --- Camera control for tab visibility ---
-    function stopCamera() {
-      const sceneEl = document.querySelector("a-scene");
-      const mindar = sceneEl.components['mindar-image'];
-      if (mindar && mindar.arController && mindar.arController.video) {
-        const stream = mindar.arController.video.srcObject;
-        if (stream && stream.getTracks) {
-          stream.getTracks().forEach(track => track.stop());
-        }
-        mindar.arController.video.srcObject = null;
-      }
-    }
-
-    async function startCamera() {
-      const sceneEl = document.querySelector("a-scene");
-      const mindar = sceneEl.components['mindar-image'];
-      if (mindar && mindar.arController) {
-        try { await mindar.arController.start(); } catch (err) { console.warn(err); }
-      }
-    }
-
-    document.addEventListener("visibilitychange", async () => {
+    document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         isActive = false;
         activeVideo.pause();
@@ -277,14 +251,12 @@
         stillWatchingContainer.style.display = "none";
         activePlane.setAttribute("visible", false);
         nextPlane.setAttribute("visible", false);
-        stopCamera();
       } else {
         whiteOverlay.style.display = "block";
         startBtn.style.display = "none";
         restartBtn.style.display = "block";
         audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
-        await startCamera();
       }
     });
   </script>
