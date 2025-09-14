@@ -45,10 +45,6 @@
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
 
-  <audio id="bgAudio" loop playsinline>
-    <source src="./assets/audio/background.mp3" type="audio/mpeg">
-  </audio>
-
   <a-scene id="arScene"
            mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
            color-space="sRGB"
@@ -79,7 +75,6 @@
     const targetEl = document.getElementById("target0");
     const videoA = document.getElementById("videoA");
     const videoB = document.getElementById("videoB");
-    const bgAudio = document.getElementById("bgAudio");
 
     const TOTAL_VIDEOS = 60;
     let lastIndex = -1;
@@ -93,11 +88,48 @@
     let targetCurrentlyVisible = false;
     let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
 
+    // --- Web Audio API setup ---
+    let audioCtx, audioBuffer, audioSource;
+    let audioLoaded = false;
+    let audioStartTime = 0;
+    let audioOffset = 0;
+
+    async function loadAudioOnce() {
+      if (audioLoaded) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const response = await fetch("./assets/audio/background.mp3");
+      const arrayBuffer = await response.arrayBuffer();
+      audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      audioLoaded = true;
+    }
+
+    function playAudio() {
+      if (!audioBuffer) return;
+      stopAudio();
+      audioSource = audioCtx.createBufferSource();
+      audioSource.buffer = audioBuffer;
+      audioSource.loop = true;
+      audioSource.connect(audioCtx.destination);
+
+      audioStartTime = audioCtx.currentTime - audioOffset;
+      audioSource.start(0, audioOffset % audioBuffer.duration);
+    }
+
+    function stopAudio() {
+      if (audioSource) {
+        try {
+          audioSource.stop();
+          audioOffset = (audioCtx.currentTime - audioStartTime) % audioBuffer.duration;
+        } catch {}
+        audioSource.disconnect();
+        audioSource = null;
+      }
+    }
+
     function pickRandomIndex() {
       let idx;
-      do {
-        idx = Math.floor(Math.random() * TOTAL_VIDEOS);
-      } while (idx === lastIndex);
+      do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); }
+      while (idx === lastIndex);
       lastIndex = idx;
       return idx;
     }
@@ -133,17 +165,20 @@
       isActive = false;
       activeVideo.pause();
       nextVideo.pause();
-      bgAudio.pause();
+      stopAudio();
       audioToggleBtn.style.display = "none";
       stillWatchingContainer.style.display = "flex";
     }
 
-    stillWatchingBtn.addEventListener("click", () => {
+    stillWatchingBtn.addEventListener("click", async () => {
       stillWatchingContainer.style.display = "none";
       loopCount = 0;
       isActive = true;
       activeVideo.play();
-      if (userAudioPreference) bgAudio.play();
+      if (userAudioPreference) {
+        await loadAudioOnce();
+        playAudio();
+      }
       audioToggleBtn.style.display = "block";
     });
 
@@ -160,7 +195,9 @@
 
       activeVideo.play();
       if (userAudioPreference) {
-        try { await bgAudio.play(); audioToggleBtn.textContent = "🔇 Pause Audio"; } catch {}
+        await loadAudioOnce();
+        playAudio();
+        audioToggleBtn.textContent = "🔇 Pause Audio";
       }
       audioToggleBtn.style.display = "block";
     }
@@ -184,19 +221,18 @@
 
     audioToggleBtn.addEventListener("click", async () => {
       try {
-        if (bgAudio.paused) {
-          await bgAudio.play();
+        await loadAudioOnce();
+        if (!audioSource) {
+          playAudio();
           audioToggleBtn.textContent = "🔇 Pause Audio";
           userAudioPreference = true;
         } else {
-          bgAudio.pause();
+          stopAudio();
           audioToggleBtn.textContent = "🔊 Play Audio";
           userAudioPreference = false;
         }
         localStorage.setItem("userAudioPref", userAudioPreference);
-      } catch (err) {
-        console.log("Audio play failed:", err);
-      }
+      } catch (err) { console.log("Audio play failed:", err); }
     });
 
     targetEl.addEventListener("targetFound", () => {
@@ -211,7 +247,7 @@
       document.querySelector("a-scene").object3D.background = null;
       activeVideo.pause();
       nextVideo.pause();
-      if (!bgAudio.paused) bgAudio.pause();
+      stopAudio();
       audioToggleBtn.style.display = "none";
     });
 
@@ -220,12 +256,11 @@
         isActive = false;
         activeVideo.pause();
         nextVideo.pause();
-        bgAudio.pause();
+        stopAudio();
         audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
         videoPlane.setAttribute("visible", false);
       } else {
-        // Show Restart AR overlay only
         whiteOverlay.style.display = "block";
         startBtn.style.display = "none";
         restartBtn.style.display = "block";
