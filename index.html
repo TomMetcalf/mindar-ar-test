@@ -70,13 +70,13 @@
     const LOOP_LIMIT = 3;
     let targetCurrentlyVisible = false;
 
-    // --- User audio preference ---
+    // User audio preference
     let userAudioPreference;
     const storedPref = localStorage.getItem("userAudioPref");
-    if (storedPref === null) { userAudioPreference = true; } // first visit: auto-play on target found
-    else { userAudioPreference = storedPref !== "false"; }
+    if (storedPref === null) userAudioPreference = true;
+    else userAudioPreference = storedPref !== "false";
 
-    // --- Web Audio API ---
+    // Web Audio API
     let audioCtx, audioBuffer, audioSource;
     let audioLoaded = false;
     let audioStartTime = 0;
@@ -90,17 +90,6 @@
       audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
       audioLoaded = true;
     }
-
-    // Prewarm audio for seamless first playback
-    async function prewarmAudio() {
-      await loadAudioOnce();
-      const unlockSource = audioCtx.createBufferSource();
-      unlockSource.buffer = audioBuffer;
-      unlockSource.connect(audioCtx.destination);
-      try { unlockSource.start(0); } catch {}
-      unlockSource.stop();
-    }
-    prewarmAudio();
 
     function playAudio() {
       if (!audioBuffer) return;
@@ -201,12 +190,25 @@
       audioToggleBtn.style.display = "block";
     }
 
-    startBtn.addEventListener("click", () => {
+    // --- INCognito unlock helper ---
+    async function unlockMediaForIncognito() {
+      const dummy = document.createElement("video");
+      dummy.muted = true;
+      dummy.playsInline = true;
+      dummy.src = "data:video/mp4;base64,AAAA..."; // very tiny placeholder
+      document.body.appendChild(dummy);
+      try { await dummy.play(); dummy.pause(); } catch {}
+      dummy.remove();
+    }
+
+    startBtn.addEventListener("click", async () => {
       startClicked = true;
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
       restartBtn.style.display = "none";
       activePlane.setAttribute("visible", false);
+
+      await unlockMediaForIncognito(); // ensure camera/video works in incognito
       monitorVideo();
       if (targetCurrentlyVisible) handleTargetFound();
     });
