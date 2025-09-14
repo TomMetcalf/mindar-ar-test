@@ -145,7 +145,6 @@
       }
       audioToggleBtn.textContent = "🔇";
     }
-
     audioToggleBtn.textContent = userAudioPreference ? "🔊" : "🔇";
 
     function swapVideo() {
@@ -189,14 +188,11 @@
     });
 
     async function handleTargetFound() {
-      if (!startClicked || document.hidden) return;
-
+      if (!startClicked) return;
       isActive = true;
       activePlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
-
       if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
-
       activeVideo.play();
       if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
       audioToggleBtn.style.display = "block";
@@ -242,11 +238,12 @@
       audioToggleBtn.style.display = "none";
     });
 
+    // Visibility handling: stop camera & media when hidden, restart camera when visible
     document.addEventListener("visibilitychange", () => {
       const arSystem = document.querySelector("a-scene").systems["mindar-image-system"];
 
       if (document.hidden) {
-        // Stop everything
+        // Stop all media
         isActive = false;
         activeVideo.pause();
         nextVideo.pause();
@@ -256,10 +253,9 @@
         activePlane.setAttribute("visible", false);
         nextPlane.setAttribute("visible", false);
 
-        // Stop camera
-        if (arSystem && arSystem.arController) {
-          arSystem.arController.stop();
-        }
+        // Stop AR camera safely
+        if (arSystem && arSystem.arController) arSystem.arController.stop();
+
       } else {
         // Show restart UI without auto-play
         whiteOverlay.style.display = "block";
@@ -267,6 +263,9 @@
         restartBtn.style.display = "block";
         audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
+
+        // Restart AR camera safely
+        if (arSystem && arSystem.arController) arSystem.arController.start();
       }
     });
   </script>
