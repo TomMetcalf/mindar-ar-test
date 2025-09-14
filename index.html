@@ -55,10 +55,15 @@
            look-at="[camera]">
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
-      <a-plane id="videoPlane"
+      <a-plane id="videoPlaneA"
                width="1.2" height="1.2" position="0 0 0"
                look-at="[camera]" visible="false"
                material="shader: flat; src: #videoA">
+      </a-plane>
+      <a-plane id="videoPlaneB"
+               width="1.2" height="1.2" position="0 0 0"
+               look-at="[camera]" visible="false"
+               material="shader: flat; src: #videoB">
       </a-plane>
     </a-entity>
   </a-scene>
@@ -71,7 +76,8 @@
     const stillWatchingContainer = document.getElementById("stillWatchingContainer");
     const stillWatchingBtn = document.getElementById("stillWatchingBtn");
 
-    const videoPlane = document.getElementById("videoPlane");
+    const videoPlaneA = document.getElementById("videoPlaneA");
+    const videoPlaneB = document.getElementById("videoPlaneB");
     const targetEl = document.getElementById("target0");
     const videoA = document.getElementById("videoA");
     const videoB = document.getElementById("videoB");
@@ -79,7 +85,9 @@
     const TOTAL_VIDEOS = 60;
     let lastIndex = -1;
     let activeVideo = videoA;
+    let activePlane = videoPlaneA;
     let nextVideo = videoB;
+    let nextPlane = videoPlaneB;
     let isActive = false;
     let startClicked = false;
 
@@ -110,7 +118,6 @@
       audioSource.buffer = audioBuffer;
       audioSource.loop = true;
       audioSource.connect(audioCtx.destination);
-
       audioStartTime = audioCtx.currentTime - audioOffset;
       audioSource.start(0, audioOffset % audioBuffer.duration);
     }
@@ -141,12 +148,34 @@
       videoEl.load();
     }
 
+    // Preload and pre-warm both videos initially
+    function prewarmVideos() {
+      [videoA, videoB].forEach(v => { v.currentTime = 0; v.play(); v.pause(); });
+      preloadVideo(videoA);
+      preloadVideo(videoB);
+    }
+    prewarmVideos();
+
     function swapVideo() {
-      const flip = Math.random() < 0.5;
-      videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
-      videoPlane.setAttribute("material", "src", nextVideo);
+      // Flip plane randomly
+      const flip = Math.random() < 0.5 ? -1 : 1;
+      nextPlane.setAttribute("scale", `${flip} 1 1`);
+
+      // Make next plane visible
+      nextPlane.setAttribute("visible", true);
+
+      // Hide current plane
+      activePlane.setAttribute("visible", false);
+
+      // Start next video
+      nextVideo.currentTime = 0;
       nextVideo.play();
+
+      // Swap active and next references
       [activeVideo, nextVideo] = [nextVideo, activeVideo];
+      [activePlane, nextPlane] = [nextPlane, activePlane];
+
+      // Preload nextVideo
       preloadVideo(nextVideo);
 
       loopCount++;
@@ -175,6 +204,7 @@
       loopCount = 0;
       isActive = true;
       activeVideo.play();
+      activePlane.setAttribute("visible", true);
       if (userAudioPreference) {
         await loadAudioOnce();
         playAudio();
@@ -185,12 +215,12 @@
     async function handleTargetFound() {
       if (!startClicked) return;
       isActive = true;
-      videoPlane.setAttribute("visible", true);
+      activePlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
 
       if (!activeVideo.src) {
-        preloadVideo(videoA);
-        preloadVideo(videoB);
+        preloadVideo(activeVideo);
+        preloadVideo(nextVideo);
       }
 
       activeVideo.play();
@@ -207,15 +237,16 @@
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
       restartBtn.style.display = "none";
-      videoPlane.setAttribute("visible", false);
+      activePlane.setAttribute("visible", false);
       monitorVideo();
-
+      loopCount = 0;
       if (targetCurrentlyVisible) handleTargetFound();
     });
 
     restartBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       restartBtn.style.display = "none";
+      loopCount = 0;
       if (targetCurrentlyVisible) handleTargetFound();
     });
 
@@ -243,7 +274,8 @@
     targetEl.addEventListener("targetLost", () => {
       targetCurrentlyVisible = false;
       isActive = false;
-      videoPlane.setAttribute("visible", false);
+      activePlane.setAttribute("visible", false);
+      nextPlane.setAttribute("visible", false);
       document.querySelector("a-scene").object3D.background = null;
       activeVideo.pause();
       nextVideo.pause();
@@ -259,7 +291,8 @@
         stopAudio();
         audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
-        videoPlane.setAttribute("visible", false);
+        activePlane.setAttribute("visible", false);
+        nextPlane.setAttribute("visible", false);
       } else {
         whiteOverlay.style.display = "block";
         startBtn.style.display = "none";
