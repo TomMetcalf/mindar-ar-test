@@ -7,12 +7,28 @@
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
     body { margin: 0; overflow: hidden; font-family: sans-serif; }
-    #whiteOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: white; z-index: 10; }
-    #startAR, #restartAR { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 20; padding: 1em 2em; font-size: 18px; cursor: pointer; }
+    #whiteOverlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background-color: white; z-index: 10;
+    }
+    #startAR, #restartAR {
+      position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+      z-index: 20; padding: 1em 2em; font-size: 18px; cursor: pointer;
+    }
     #restartAR { display: none; }
-    #audioToggle { position: fixed; bottom: 5%; right: 5%; z-index: 20; padding: 0.5em 1em; font-size: 18px; cursor: pointer; display: none; }
-    #stillWatchingContainer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 50; display: none; align-items: center; justify-content: center; }
-    #stillWatchingBtn { padding: 1em 2em; font-size: 18px; cursor: pointer; }
+    #audioToggle {
+      position: fixed; bottom: 5%; right: 5%;
+      z-index: 20; padding: 0.5em 1em; font-size: 16px;
+      cursor: pointer; display: none;
+    }
+    #stillWatchingContainer {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: white; z-index: 50; display: none;
+      align-items: center; justify-content: center;
+    }
+    #stillWatchingBtn {
+      padding: 1em 2em; font-size: 18px; cursor: pointer;
+    }
     #arScene { display: block; }
   </style>
 </head>
@@ -39,8 +55,11 @@
            look-at="[camera]">
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
-      <a-plane id="videoPlaneA" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader: flat; src: #videoA"></a-plane>
-      <a-plane id="videoPlaneB" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader: flat; src: #videoB"></a-plane>
+      <a-plane id="videoPlane"
+               width="1.2" height="1.2" position="0 0 0"
+               look-at="[camera]" visible="false"
+               material="shader: flat; src: #videoA">
+      </a-plane>
     </a-entity>
   </a-scene>
 
@@ -52,8 +71,7 @@
     const stillWatchingContainer = document.getElementById("stillWatchingContainer");
     const stillWatchingBtn = document.getElementById("stillWatchingBtn");
 
-    const videoPlaneA = document.getElementById("videoPlaneA");
-    const videoPlaneB = document.getElementById("videoPlaneB");
+    const videoPlane = document.getElementById("videoPlane");
     const targetEl = document.getElementById("target0");
     const videoA = document.getElementById("videoA");
     const videoB = document.getElementById("videoB");
@@ -61,25 +79,16 @@
     const TOTAL_VIDEOS = 60;
     let lastIndex = -1;
     let activeVideo = videoA;
-    let activePlane = videoPlaneA;
     let nextVideo = videoB;
-    let nextPlane = videoPlaneB;
     let isActive = false;
     let startClicked = false;
+
     let loopCount = 0;
     const LOOP_LIMIT = 3;
     let targetCurrentlyVisible = false;
+    let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
 
-    // --- User audio preference ---
-    let userAudioPreference;
-    const storedPref = localStorage.getItem("userAudioPref");
-    if (storedPref === null) {
-      userAudioPreference = true; // first visit: auto-play on target found
-    } else {
-      userAudioPreference = storedPref !== "false";
-    }
-
-    // --- Web Audio API ---
+    // --- Web Audio API setup ---
     let audioCtx, audioBuffer, audioSource;
     let audioLoaded = false;
     let audioStartTime = 0;
@@ -103,7 +112,6 @@
       audioSource.connect(audioCtx.destination);
       audioStartTime = audioCtx.currentTime - audioOffset;
       audioSource.start(0, audioOffset % audioBuffer.duration);
-      audioToggleBtn.textContent = "🔊";
     }
 
     function stopAudio() {
@@ -112,15 +120,12 @@
         audioSource.disconnect();
         audioSource = null;
       }
-      audioToggleBtn.textContent = "🔇";
     }
-
-    // Reflect audio state immediately on load
-    audioToggleBtn.textContent = userAudioPreference ? "🔊" : "🔇";
 
     function pickRandomIndex() {
       let idx;
-      do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
+      do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); }
+      while (idx === lastIndex);
       lastIndex = idx;
       return idx;
     }
@@ -132,22 +137,12 @@
       videoEl.load();
     }
 
-    function prewarmVideos() {
-      [videoA, videoB].forEach(v => { v.currentTime = 0; v.play(); v.pause(); });
-      preloadVideo(videoA);
-      preloadVideo(videoB);
-    }
-    prewarmVideos();
-
     function swapVideo() {
-      const flip = Math.random() < 0.5 ? -1 : 1;
-      nextPlane.setAttribute("scale", `${flip} 1 1`);
-      nextPlane.setAttribute("visible", true);
-      activePlane.setAttribute("visible", false);
-      nextVideo.currentTime = 0;
+      const flip = Math.random() < 0.5;
+      videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
+      videoPlane.setAttribute("material", "src", nextVideo);
       nextVideo.play();
       [activeVideo, nextVideo] = [nextVideo, activeVideo];
-      [activePlane, nextPlane] = [nextPlane, activePlane];
       preloadVideo(nextVideo);
 
       loopCount++;
@@ -155,7 +150,8 @@
     }
 
     function monitorVideo() {
-      if (isActive && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration - 0.05) {
+      if (isActive && activeVideo.duration > 0 &&
+          activeVideo.currentTime >= activeVideo.duration - 0.05) {
         swapVideo();
       }
       requestAnimationFrame(monitorVideo);
@@ -175,7 +171,6 @@
       loopCount = 0;
       isActive = true;
       activeVideo.play();
-      activePlane.setAttribute("visible", true);
       if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
       audioToggleBtn.style.display = "block";
     });
@@ -183,26 +178,47 @@
     async function handleTargetFound() {
       if (!startClicked) return;
       isActive = true;
-      activePlane.setAttribute("visible", true);
+      videoPlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
-
-      if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
-
+      if (!activeVideo.src) { preloadVideo(videoA); preloadVideo(videoB); }
       activeVideo.play();
-
-      if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
-
+      if (userAudioPreference) { await loadAudioOnce(); playAudio(); audioToggleBtn.textContent="🔇"; }
       audioToggleBtn.style.display = "block";
     }
+
+    // Preload first two videos immediately
+    preloadVideo(videoA);
+    preloadVideo(videoB);
 
     startBtn.addEventListener("click", () => {
       startClicked = true;
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
       restartBtn.style.display = "none";
-      activePlane.setAttribute("visible", false);
+      videoPlane.setAttribute("visible", false);
       monitorVideo();
-      if (targetCurrentlyVisible) handleTargetFound();
+
+      // Camera loading overlay
+      const camLoading = document.createElement('div');
+      camLoading.id = 'camLoading';
+      camLoading.style.cssText = `
+        position:fixed;top:0;left:0;width:100%;height:100%;
+        background:white;display:flex;align-items:center;justify-content:center;z-index:100;
+        font-size: 20px; font-family:sans-serif;
+        opacity:1; transition: opacity 0.3s ease;
+      `;
+      camLoading.textContent = 'Camera loading...';
+      document.body.appendChild(camLoading);
+
+      const checkCameraReady = setInterval(() => {
+        const camVideo = document.querySelector('video');
+        if (camVideo && camVideo.readyState >= 2) { // HAVE_CURRENT_DATA
+          clearInterval(checkCameraReady);
+          camLoading.style.opacity = '0';
+          setTimeout(() => camLoading.remove(), 300);
+          if (targetCurrentlyVisible) handleTargetFound();
+        }
+      }, 50);
     });
 
     restartBtn.addEventListener("click", () => {
@@ -212,10 +228,12 @@
     });
 
     audioToggleBtn.addEventListener("click", async () => {
-      await loadAudioOnce();
-      if (!audioSource) { playAudio(); userAudioPreference = true; }
-      else { stopAudio(); userAudioPreference = false; }
-      localStorage.setItem("userAudioPref", userAudioPreference);
+      try {
+        await loadAudioOnce();
+        if (!audioSource) { playAudio(); audioToggleBtn.textContent="🔇"; userAudioPreference=true; }
+        else { stopAudio(); audioToggleBtn.textContent="🔈"; userAudioPreference=false; }
+        localStorage.setItem("userAudioPref", userAudioPreference);
+      } catch (err) { console.log("Audio play failed:", err); }
     });
 
     targetEl.addEventListener("targetFound", () => {
@@ -226,8 +244,7 @@
     targetEl.addEventListener("targetLost", () => {
       targetCurrentlyVisible = false;
       isActive = false;
-      activePlane.setAttribute("visible", false);
-      nextPlane.setAttribute("visible", false);
+      videoPlane.setAttribute("visible", false);
       document.querySelector("a-scene").object3D.background = null;
       activeVideo.pause();
       nextVideo.pause();
@@ -243,8 +260,7 @@
         stopAudio();
         audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
-        activePlane.setAttribute("visible", false);
-        nextPlane.setAttribute("visible", false);
+        videoPlane.setAttribute("visible", false);
       } else {
         whiteOverlay.style.display = "block";
         startBtn.style.display = "none";
