@@ -26,8 +26,8 @@
     <button id="stillWatchingBtn">Still Watching?</button>
   </div>
 
-  <video id="videoA" style="display:none" muted playsinline></video>
-  <video id="videoB" style="display:none" muted playsinline></video>
+  <video id="videoA" style="display:none" muted playsinline preload="auto"></video>
+  <video id="videoB" style="display:none" muted playsinline preload="auto"></video>
 
   <a-scene id="arScene"
            mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
@@ -91,6 +91,16 @@
       audioLoaded = true;
     }
 
+    // --- Prewarm camera & videos to prevent incognito hang ---
+    async function prewarmCameraAndVideos() {
+      const scene = document.querySelector("a-scene");
+      scene.camera.el.components.camera.camera; // trigger camera init
+      [videoA, videoB].forEach(v => { v.currentTime = 0; v.play(); v.pause(); });
+      preloadVideo(videoA);
+      preloadVideo(videoB);
+    }
+    prewarmCameraAndVideos();
+
     function playAudio() {
       if (!audioBuffer) return;
       stopAudio();
@@ -126,35 +136,6 @@
       videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
       videoEl.currentTime = 0;
       videoEl.load();
-    }
-
-    function prewarmVideos() {
-      [videoA, videoB].forEach(v => { v.currentTime = 0; v.play(); v.pause(); });
-      preloadVideo(videoA);
-      preloadVideo(videoB);
-    }
-    prewarmVideos();
-
-    // --- Camera prewarm for incognito ---
-    let cameraUnlocked = false;
-    async function prewarmCamera() {
-      if (cameraUnlocked) return;
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        const dummy = document.createElement("video");
-        dummy.srcObject = stream;
-        dummy.muted = true;
-        dummy.playsInline = true;
-        document.body.appendChild(dummy);
-        await dummy.play();
-        dummy.pause();
-        stream.getTracks().forEach(track => track.stop());
-        dummy.remove();
-        cameraUnlocked = true;
-        console.log("Camera prewarmed!");
-      } catch (err) {
-        console.warn("Camera prewarm failed:", err);
-      }
     }
 
     function swapVideo() {
@@ -206,29 +187,33 @@
 
       if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
 
+      // Wait until video is ready to play
+      await new Promise(resolve => {
+        if (activeVideo.readyState >= 3) resolve();
+        else activeVideo.addEventListener("canplaythrough", resolve, { once: true });
+      });
+
+      activeVideo.currentTime = 0;
       activeVideo.play();
+
       if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
 
       audioToggleBtn.style.display = "block";
     }
 
-    startBtn.addEventListener("click", async () => {
+    startBtn.addEventListener("click", () => {
       startClicked = true;
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
       restartBtn.style.display = "none";
       activePlane.setAttribute("visible", false);
-
-      await prewarmCamera(); // Unlock camera for incognito
-
       monitorVideo();
       if (targetCurrentlyVisible) handleTargetFound();
     });
 
-    restartBtn.addEventListener("click", async () => {
+    restartBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       restartBtn.style.display = "none";
-      await prewarmCamera(); // Ensure camera is ready
       if (targetCurrentlyVisible) handleTargetFound();
     });
 
