@@ -70,13 +70,13 @@
     const LOOP_LIMIT = 3;
     let targetCurrentlyVisible = false;
 
-    // User audio preference
+    // --- User audio preference ---
     let userAudioPreference;
     const storedPref = localStorage.getItem("userAudioPref");
-    if (storedPref === null) { userAudioPreference = true; } // first visit: auto-play
+    if (storedPref === null) { userAudioPreference = true; }
     else { userAudioPreference = storedPref !== "false"; }
 
-    // Web Audio API
+    // --- Web Audio API ---
     let audioCtx, audioBuffer, audioSource;
     let audioLoaded = false;
     let audioStartTime = 0;
@@ -100,7 +100,7 @@
       unlockSource.stop();
     }
 
-    // Prewarm camera to avoid incognito hang
+    // Prewarm camera to avoid first load hang
     const camera = document.getElementById("camera");
     camera.object3D.visible = false;
     setTimeout(() => { camera.object3D.visible = true; }, 50);
@@ -137,6 +137,7 @@
       audioSource.start(0, audioOffset % audioBuffer.duration);
       audioToggleBtn.textContent = "🔊";
     }
+
     function stopAudio() {
       if (audioSource) {
         try { audioSource.stop(); audioOffset = (audioCtx.currentTime - audioStartTime) % audioBuffer.duration; } catch {}
@@ -145,6 +146,7 @@
       }
       audioToggleBtn.textContent = "🔇";
     }
+
     audioToggleBtn.textContent = userAudioPreference ? "🔊" : "🔇";
 
     function swapVideo() {
@@ -239,8 +241,19 @@
       audioToggleBtn.style.display = "none";
     });
 
+    // --- Stop AR camera if tab hidden ---
+    const sceneEl = document.querySelector("a-scene");
+    let mindarSystem = null;
+    sceneEl.addEventListener("loaded", () => {
+      mindarSystem = sceneEl.systems["mindar-image-system"];
+    });
+
     document.addEventListener("visibilitychange", () => {
+      if (!mindarSystem) return;
+
       if (document.hidden) {
+        // Stop AR tracking and release camera
+        mindarSystem.stop();
         isActive = false;
         activeVideo.pause();
         nextVideo.pause();
@@ -250,6 +263,7 @@
         activePlane.setAttribute("visible", false);
         nextPlane.setAttribute("visible", false);
       } else {
+        // Show overlay and require user to restart AR
         whiteOverlay.style.display = "block";
         startBtn.style.display = "none";
         restartBtn.style.display = "block";
