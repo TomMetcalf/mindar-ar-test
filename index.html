@@ -141,34 +141,16 @@
       videoEl.load();
     }
 
-    // --- Swap video smoothly without black flash & fix loopCount ---
     function swapVideo() {
       const flip = Math.random() < 0.5;
       videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
-
-      activeVideo.pause();
-      nextVideo.currentTime = 0;
+      videoPlane.setAttribute("material", "src", nextVideo);
       nextVideo.play();
+      [activeVideo, nextVideo] = [nextVideo, activeVideo];
+      preloadVideo(nextVideo);
 
-      function showWhenReady() {
-        if (nextVideo.currentTime > 0) {
-          videoPlane.setAttribute("material", "src", nextVideo);
-          [activeVideo, nextVideo] = [nextVideo, activeVideo];
-          preloadVideo(nextVideo);
-
-          // Increment loopCount only after first video completes
-          if (loopCount > 0 || activeVideo !== videoA) {
-            loopCount++;
-            if (loopCount >= LOOP_LIMIT) showStillWatching();
-          } else {
-            loopCount = 1; // first swap, don't trigger Still Watching
-          }
-
-        } else {
-          requestAnimationFrame(showWhenReady);
-        }
-      }
-      showWhenReady();
+      loopCount++;
+      if (loopCount >= LOOP_LIMIT) showStillWatching();
     }
 
     function monitorVideo() {
@@ -228,14 +210,12 @@
       videoPlane.setAttribute("visible", false);
       monitorVideo();
 
-      loopCount = 0; // reset on AR start
       if (targetCurrentlyVisible) handleTargetFound();
     });
 
     restartBtn.addEventListener("click", () => {
       whiteOverlay.style.display = "none";
       restartBtn.style.display = "none";
-      loopCount = 0; // reset on restart
       if (targetCurrentlyVisible) handleTargetFound();
     });
 
