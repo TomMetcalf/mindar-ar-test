@@ -91,6 +91,17 @@
       audioLoaded = true;
     }
 
+    // Prewarm audio for seamless first playback
+    async function prewarmAudio() {
+      await loadAudioOnce();
+      const unlockSource = audioCtx.createBufferSource();
+      unlockSource.buffer = audioBuffer;
+      unlockSource.connect(audioCtx.destination);
+      try { unlockSource.start(0); } catch {}
+      unlockSource.stop();
+    }
+    prewarmAudio();
+
     function playAudio() {
       if (!audioBuffer) return;
       stopAudio();
@@ -134,14 +145,6 @@
       preloadVideo(videoB);
     }
     prewarmVideos();
-
-    // --- New function to fix hanging in Incognito ---
-    async function prewarmCamera() {
-      try {
-        await videoA.play(); videoA.pause();
-        await videoB.play(); videoB.pause();
-      } catch(err) { console.log("Camera prewarm failed:", err); }
-    }
 
     function swapVideo() {
       const flip = Math.random() < 0.5 ? -1 : 1;
@@ -193,21 +196,17 @@
       if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
 
       activeVideo.play();
-
       if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
 
       audioToggleBtn.style.display = "block";
     }
 
-    startBtn.addEventListener("click", async () => {
+    startBtn.addEventListener("click", () => {
       startClicked = true;
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
       restartBtn.style.display = "none";
       activePlane.setAttribute("visible", false);
-
-      await prewarmCamera();   // <--- Fix for Incognito hanging
-
       monitorVideo();
       if (targetCurrentlyVisible) handleTargetFound();
     });
