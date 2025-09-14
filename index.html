@@ -73,7 +73,7 @@
     // User audio preference
     let userAudioPreference;
     const storedPref = localStorage.getItem("userAudioPref");
-    if (storedPref === null) { userAudioPreference = true; } // first visit
+    if (storedPref === null) { userAudioPreference = true; } // first visit: auto-play
     else { userAudioPreference = storedPref !== "false"; }
 
     // Web Audio API
@@ -90,6 +90,20 @@
       audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
       audioLoaded = true;
     }
+
+    async function prewarmAudio() {
+      await loadAudioOnce();
+      const unlockSource = audioCtx.createBufferSource();
+      unlockSource.buffer = audioBuffer;
+      unlockSource.connect(audioCtx.destination);
+      try { unlockSource.start(0); } catch {}
+      unlockSource.stop();
+    }
+
+    // Prewarm camera to avoid incognito hang
+    const camera = document.getElementById("camera");
+    camera.object3D.visible = false;
+    setTimeout(() => { camera.object3D.visible = true; }, 50);
 
     // Prewarm videos
     function pickRandomIndex() {
@@ -110,6 +124,7 @@
       preloadVideo(videoB);
     }
     prewarmVideos();
+    prewarmAudio();
 
     function playAudio() {
       if (!audioBuffer) return;
@@ -122,7 +137,6 @@
       audioSource.start(0, audioOffset % audioBuffer.duration);
       audioToggleBtn.textContent = "🔊";
     }
-
     function stopAudio() {
       if (audioSource) {
         try { audioSource.stop(); audioOffset = (audioCtx.currentTime - audioStartTime) % audioBuffer.duration; } catch {}
@@ -131,7 +145,6 @@
       }
       audioToggleBtn.textContent = "🔇";
     }
-
     audioToggleBtn.textContent = userAudioPreference ? "🔊" : "🔇";
 
     function swapVideo() {
@@ -179,6 +192,7 @@
       isActive = true;
       activePlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
+
       if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
       activeVideo.play();
       if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
@@ -227,7 +241,6 @@
 
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
-        // Stop everything to avoid multi-tab camera conflicts
         isActive = false;
         activeVideo.pause();
         nextVideo.pause();
@@ -237,7 +250,6 @@
         activePlane.setAttribute("visible", false);
         nextPlane.setAttribute("visible", false);
       } else {
-        // Show overlay and restart button, user must gesture to resume
         whiteOverlay.style.display = "block";
         startBtn.style.display = "none";
         restartBtn.style.display = "block";
