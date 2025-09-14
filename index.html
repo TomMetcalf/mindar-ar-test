@@ -71,7 +71,10 @@
     let targetCurrentlyVisible = false;
 
     // --- User audio preference ---
-    let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
+    let userAudioPreference;
+    const storedPref = localStorage.getItem("userAudioPref");
+    if (storedPref === null) { userAudioPreference = true; } // first visit: auto-play
+    else { userAudioPreference = storedPref !== "false"; }
 
     // --- Web Audio API ---
     let audioCtx, audioBuffer, audioSource;
@@ -86,6 +89,13 @@
       const arrayBuffer = await response.arrayBuffer();
       audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
       audioLoaded = true;
+
+      // Prewarm audio for seamless first playback
+      const unlockSource = audioCtx.createBufferSource();
+      unlockSource.buffer = audioBuffer;
+      unlockSource.connect(audioCtx.destination);
+      try { unlockSource.start(0); } catch {}
+      unlockSource.stop();
     }
 
     function playAudio() {
@@ -124,6 +134,13 @@
       videoEl.currentTime = 0;
       videoEl.load();
     }
+
+    function prewarmVideos() {
+      [videoA, videoB].forEach(v => { v.currentTime = 0; v.play(); v.pause(); });
+      preloadVideo(videoA);
+      preloadVideo(videoB);
+    }
+    prewarmVideos();
 
     function swapVideo() {
       const flip = Math.random() < 0.5 ? -1 : 1;
@@ -187,22 +204,9 @@
       restartBtn.style.display = "none";
       activePlane.setAttribute("visible", false);
 
-      // Prewarm camera
-      const arScene = document.getElementById("arScene");
+      // Prewarm camera after gesture to avoid incognito hang
+      const arScene = document.querySelector("a-scene");
       await arScene.components['mindar-image'].start();
-
-      // Prewarm videos
-      [videoA, videoB].forEach(v => { v.currentTime = 0; v.play(); v.pause(); });
-      preloadVideo(videoA);
-      preloadVideo(videoB);
-
-      // Prewarm audio
-      await loadAudioOnce();
-      const unlockSource = audioCtx.createBufferSource();
-      unlockSource.buffer = audioBuffer;
-      unlockSource.connect(audioCtx.destination);
-      try { unlockSource.start(0); } catch {}
-      unlockSource.stop();
 
       monitorVideo();
       if (targetCurrentlyVisible) handleTargetFound();
