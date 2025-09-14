@@ -37,7 +37,7 @@
            device-orientation-permission-ui="enabled: false"
            framerate="12"
            look-at="[camera]">
-    <a-camera id="camera" position="0 0 0" look-controls="enabled: false"></a-camera>
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
       <a-plane id="videoPlaneA" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader: flat; src: #videoA"></a-plane>
       <a-plane id="videoPlaneB" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader: flat; src: #videoB"></a-plane>
@@ -70,13 +70,10 @@
     const LOOP_LIMIT = 3;
     let targetCurrentlyVisible = false;
 
-    // User audio preference
-    let userAudioPreference;
-    const storedPref = localStorage.getItem("userAudioPref");
-    if (storedPref === null) { userAudioPreference = true; } // first visit: auto-play
-    else { userAudioPreference = storedPref !== "false"; }
+    // --- User audio preference ---
+    let userAudioPreference = localStorage.getItem("userAudioPref") !== "false";
 
-    // Web Audio API
+    // --- Web Audio API ---
     let audioCtx, audioBuffer, audioSource;
     let audioLoaded = false;
     let audioStartTime = 0;
@@ -91,41 +88,6 @@
       audioLoaded = true;
     }
 
-    async function prewarmAudio() {
-      await loadAudioOnce();
-      const unlockSource = audioCtx.createBufferSource();
-      unlockSource.buffer = audioBuffer;
-      unlockSource.connect(audioCtx.destination);
-      try { unlockSource.start(0); } catch {}
-      unlockSource.stop();
-    }
-
-    // Prewarm camera to avoid incognito hang
-    const camera = document.getElementById("camera");
-    camera.object3D.visible = false;
-    setTimeout(() => { camera.object3D.visible = true; }, 50);
-
-    // Prewarm videos
-    function pickRandomIndex() {
-      let idx;
-      do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
-      lastIndex = idx;
-      return idx;
-    }
-    function preloadVideo(videoEl) {
-      const idx = pickRandomIndex();
-      videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
-      videoEl.currentTime = 0;
-      videoEl.load();
-    }
-    function prewarmVideos() {
-      [videoA, videoB].forEach(v => { v.currentTime = 0; v.play(); v.pause(); });
-      preloadVideo(videoA);
-      preloadVideo(videoB);
-    }
-    prewarmVideos();
-    prewarmAudio();
-
     function playAudio() {
       if (!audioBuffer) return;
       stopAudio();
@@ -137,6 +99,7 @@
       audioSource.start(0, audioOffset % audioBuffer.duration);
       audioToggleBtn.textContent = "🔊";
     }
+
     function stopAudio() {
       if (audioSource) {
         try { audioSource.stop(); audioOffset = (audioCtx.currentTime - audioStartTime) % audioBuffer.duration; } catch {}
@@ -145,7 +108,22 @@
       }
       audioToggleBtn.textContent = "🔇";
     }
+
     audioToggleBtn.textContent = userAudioPreference ? "🔊" : "🔇";
+
+    function pickRandomIndex() {
+      let idx;
+      do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
+      lastIndex = idx;
+      return idx;
+    }
+
+    function preloadVideo(videoEl) {
+      const idx = pickRandomIndex();
+      videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
+      videoEl.currentTime = 0;
+      videoEl.load();
+    }
 
     function swapVideo() {
       const flip = Math.random() < 0.5 ? -1 : 1;
@@ -157,6 +135,7 @@
       [activeVideo, nextVideo] = [nextVideo, activeVideo];
       [activePlane, nextPlane] = [nextPlane, activePlane];
       preloadVideo(nextVideo);
+
       loopCount++;
       if (loopCount >= LOOP_LIMIT) showStillWatching();
     }
@@ -194,17 +173,37 @@
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
 
       if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
+
       activeVideo.play();
       if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
+
       audioToggleBtn.style.display = "block";
     }
 
-    startBtn.addEventListener("click", () => {
+    startBtn.addEventListener("click", async () => {
       startClicked = true;
       whiteOverlay.style.display = "none";
       startBtn.style.display = "none";
       restartBtn.style.display = "none";
       activePlane.setAttribute("visible", false);
+
+      // Prewarm camera
+      const arScene = document.getElementById("arScene");
+      await arScene.components['mindar-image'].start();
+
+      // Prewarm videos
+      [videoA, videoB].forEach(v => { v.currentTime = 0; v.play(); v.pause(); });
+      preloadVideo(videoA);
+      preloadVideo(videoB);
+
+      // Prewarm audio
+      await loadAudioOnce();
+      const unlockSource = audioCtx.createBufferSource();
+      unlockSource.buffer = audioBuffer;
+      unlockSource.connect(audioCtx.destination);
+      try { unlockSource.start(0); } catch {}
+      unlockSource.stop();
+
       monitorVideo();
       if (targetCurrentlyVisible) handleTargetFound();
     });
