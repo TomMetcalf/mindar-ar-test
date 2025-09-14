@@ -18,7 +18,7 @@
     #restartAR { display: none; }
     #audioToggle {
       position: fixed; bottom: 5%; right: 5%;
-      z-index: 20; padding: 0.5em 1em; font-size: 16px;
+      z-index: 20; padding: 0.5em 1em; font-size: 18px;
       cursor: pointer; display: none;
     }
     #stillWatchingContainer {
@@ -36,7 +36,7 @@
   <div id="whiteOverlay"></div>
   <button id="startAR">Start AR</button>
   <button id="restartAR">Restart AR</button>
-  <button id="audioToggle">🔊 Play Audio</button>
+  <button id="audioToggle">🔇</button>
 
   <div id="stillWatchingContainer">
     <button id="stillWatchingBtn">Still Watching?</button>
@@ -120,6 +120,7 @@
       audioSource.connect(audioCtx.destination);
       audioStartTime = audioCtx.currentTime - audioOffset;
       audioSource.start(0, audioOffset % audioBuffer.duration);
+      audioToggleBtn.textContent = "🔊";
     }
 
     function stopAudio() {
@@ -131,6 +132,7 @@
         audioSource.disconnect();
         audioSource = null;
       }
+      audioToggleBtn.textContent = "🔇";
     }
 
     function pickRandomIndex() {
@@ -148,7 +150,6 @@
       videoEl.load();
     }
 
-    // Preload and pre-warm both videos initially
     function prewarmVideos() {
       [videoA, videoB].forEach(v => { v.currentTime = 0; v.play(); v.pause(); });
       preloadVideo(videoA);
@@ -157,25 +158,14 @@
     prewarmVideos();
 
     function swapVideo() {
-      // Flip plane randomly
       const flip = Math.random() < 0.5 ? -1 : 1;
       nextPlane.setAttribute("scale", `${flip} 1 1`);
-
-      // Make next plane visible
       nextPlane.setAttribute("visible", true);
-
-      // Hide current plane
       activePlane.setAttribute("visible", false);
-
-      // Start next video
       nextVideo.currentTime = 0;
       nextVideo.play();
-
-      // Swap active and next references
       [activeVideo, nextVideo] = [nextVideo, activeVideo];
       [activePlane, nextPlane] = [nextPlane, activePlane];
-
-      // Preload nextVideo
       preloadVideo(nextVideo);
 
       loopCount++;
@@ -227,7 +217,6 @@
       if (userAudioPreference) {
         await loadAudioOnce();
         playAudio();
-        audioToggleBtn.textContent = "🔇 Pause Audio";
       }
       audioToggleBtn.style.display = "block";
     }
@@ -255,11 +244,9 @@
         await loadAudioOnce();
         if (!audioSource) {
           playAudio();
-          audioToggleBtn.textContent = "🔇 Pause Audio";
           userAudioPreference = true;
         } else {
           stopAudio();
-          audioToggleBtn.textContent = "🔊 Play Audio";
           userAudioPreference = false;
         }
         localStorage.setItem("userAudioPref", userAudioPreference);
