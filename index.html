@@ -141,16 +141,34 @@
       videoEl.load();
     }
 
+    // --- Preload and wait for first two videos fully ---
+    function preloadVideoFully(videoEl, idx = null) {
+      return new Promise(resolve => {
+        if (idx === null) idx = pickRandomIndex();
+        videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
+        videoEl.currentTime = 0;
+        videoEl.load();
+        videoEl.addEventListener('canplaythrough', function ready() {
+          videoEl.removeEventListener('canplaythrough', ready);
+          resolve();
+        });
+      });
+    }
+
+    // --- Swap video smoothly ---
     function swapVideo() {
       const flip = Math.random() < 0.5;
       videoPlane.setAttribute("scale", flip ? "-1 1 1" : "1 1 1");
-      videoPlane.setAttribute("material", "src", nextVideo);
-      nextVideo.play();
-      [activeVideo, nextVideo] = [nextVideo, activeVideo];
-      preloadVideo(nextVideo);
 
-      loopCount++;
-      if (loopCount >= LOOP_LIMIT) showStillWatching();
+      activeVideo.pause();
+
+      nextVideo.addEventListener('canplaythrough', function playNext() {
+        videoPlane.setAttribute("material", "src", nextVideo);
+        nextVideo.play();
+        [activeVideo, nextVideo] = [nextVideo, activeVideo];
+        preloadVideo(nextVideo);
+        nextVideo.removeEventListener('canplaythrough', playNext);
+      });
     }
 
     function monitorVideo() {
@@ -189,8 +207,9 @@
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
 
       if (!activeVideo.src) {
-        preloadVideo(videoA);
-        preloadVideo(videoB);
+        // Preload both videos fully
+        await preloadVideoFully(videoA);
+        await preloadVideoFully(videoB);
       }
 
       activeVideo.play();
