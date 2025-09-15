@@ -66,12 +66,8 @@
       font-size: 1.2em;
     }
 
-    @media (max-width: 480px) {
-      #inactiveTabMessage p { font-size: 1em; }
-    }
-    @media (max-width: 360px) {
-      #inactiveTabMessage p { font-size: 0.9em; }
-    }
+    @media (max-width: 480px) { #inactiveTabMessage p { font-size: 1em; } }
+    @media (max-width: 360px) { #inactiveTabMessage p { font-size: 0.9em; } }
   </style>
 </head>
 <body>
@@ -118,78 +114,34 @@
 
 <script>
 (async ()=>{
-  const AR_FLAG_KEY = "arActiveOwner";
+
+  const AR_FLAG_KEY = "arActive";
   const TAB_ID = Date.now() + '-' + Math.random();
-  const STALE_LIMIT = 8000; // 8 seconds
-
-  function setOwner(id) {
-    localStorage.setItem(AR_FLAG_KEY, JSON.stringify({ ownerId: id, lastSeen: Date.now() }));
-  }
-
-  function getOwner() {
-    const raw = localStorage.getItem(AR_FLAG_KEY);
-    if (!raw) return null;
-    try { return JSON.parse(raw); } catch { return null; }
-  }
-
-  function refreshOwnership() {
-    const owner = getOwner();
-    if (owner && owner.ownerId === TAB_ID) {
-      setOwner(TAB_ID); // refresh timestamp
-    }
-  }
 
   function showInactiveMessage(){
     document.getElementById("whiteOverlay").style.display="none";
     document.getElementById("inactiveTabMessage").style.display="flex";
   }
 
-  // Try to claim ownership
-  const owner = getOwner();
-  if (!owner || Date.now() - owner.lastSeen > STALE_LIMIT) {
-    setOwner(TAB_ID); // this tab becomes owner
-    initAR();
-  } else {
+  // -----------------------
+  // Single-tab enforcement (Option 1)
+  // -----------------------
+  if(localStorage.getItem(AR_FLAG_KEY)){
     showInactiveMessage();
-  }
-
-  // Listen for other tabs claiming ownership
+    return; 
+  } 
+  localStorage.setItem(AR_FLAG_KEY, TAB_ID);
+  window.addEventListener("beforeunload", ()=>{ 
+    if(localStorage.getItem(AR_FLAG_KEY) === TAB_ID) localStorage.removeItem(AR_FLAG_KEY);
+  });
   window.addEventListener("storage", (e)=>{
-    if (e.key === AR_FLAG_KEY) {
-      const owner = getOwner();
-      if (owner && owner.ownerId !== TAB_ID) {
-        showInactiveMessage();
-      }
-    }
-  });
-
-  // Check ownership when tab visibility changes
-  document.addEventListener("visibilitychange", ()=>{
-    if (!document.hidden) {
-      const owner = getOwner();
-      if (!owner || Date.now() - owner.lastSeen > STALE_LIMIT) {
-        // claim ownership
-        setOwner(TAB_ID);
-      } else if (owner.ownerId !== TAB_ID) {
-        // another tab is active
-        showInactiveMessage();
-      } else {
-        // still owner, refresh
-        refreshOwnership();
-      }
-    }
-  });
-
-  // Release ownership on close
-  window.addEventListener("beforeunload", ()=>{
-    const owner = getOwner();
-    if (owner && owner.ownerId === TAB_ID) {
-      localStorage.removeItem(AR_FLAG_KEY);
+    if(e.key===AR_FLAG_KEY && e.newValue && e.newValue !== TAB_ID){
+      showInactiveMessage();
     }
   });
 
   // -----------------------
-  // AR logic (your existing code unchanged)
+  // AR logic
   // -----------------------
   async function initAR(){
     const whiteOverlay = document.getElementById("whiteOverlay");
@@ -310,9 +262,9 @@
     }
 
     startBtn.addEventListener("click",()=>{
-      startClicked = true;
-      arButtonPressed = true;
-      arStartedOnce = true;
+      startClicked=true;
+      arButtonPressed=true;
+      arStartedOnce=true;
       whiteOverlay.style.display="none";
       arScene.style.display="block";
       monitorVideo();
@@ -320,8 +272,8 @@
     });
 
     restartBtn.addEventListener("click",()=>{
-      startClicked = true;
-      arButtonPressed = true;
+      startClicked=true;
+      arButtonPressed=true;
       whiteOverlay.style.display="none";
       arScene.style.display="block";
       monitorVideo();
@@ -336,7 +288,7 @@
     });
 
     targetEl.addEventListener("targetFound", ()=>{
-      targetCurrentlyVisible = true;
+      targetCurrentlyVisible=true;
       if(arButtonPressed) handleTargetFound();
     });
 
@@ -369,7 +321,7 @@
         if(arStartedOnce){
           startBtn.style.display="none";
           restartBtn.style.display="block";
-          arButtonPressed = false;
+          arButtonPressed=false;
         } else {
           startBtn.style.display="block";
           restartBtn.style.display="none";
@@ -382,6 +334,9 @@
     preloadVideo(videoB);
     await loadAudioOnce();
   }
+
+  initAR();
+
 })();
 </script>
 
