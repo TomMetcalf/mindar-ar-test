@@ -7,11 +7,13 @@
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
     body { margin:0; font-family:sans-serif; }
+
     #whiteOverlay, #inactiveTabMessage {
       position: fixed; top:0; left:0; width:100%; height:100%;
       display:flex; align-items:center; justify-content:center;
       background:white; z-index:10;
     }
+
     #preARMessage {
       display:flex;
       flex-direction:column;
@@ -19,21 +21,54 @@
       justify-content:center;
       height:100%;
     }
+
     #startAR, #restartAR {
       padding:1em 2em; font-size:18px; cursor:pointer;
     }
     #restartAR { display:none; }
+
     #audioToggle {
       position: fixed; bottom:5%; right:5%; z-index:20; padding:0.5em 1em; font-size:18px; cursor:pointer; display:none;
     }
+
     #arScene { display:none; }
+
     #stillWatchingContainer {
       position: fixed; top:0; left:0; width:100%; height:100%;
       background:white; z-index:50; display:none;
       align-items:center; justify-content:center;
     }
+
     #stillWatchingBtn {
       padding:1em 2em; font-size:18px; cursor:pointer;
+    }
+
+    /* --- Fixed formatting for inactive message --- */
+    #inactiveTabMessage {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 0 2em;
+      height: 100%;
+      max-width: 600px;           /* prevent stretching too wide */
+      margin: 0 auto;             /* center horizontally */
+      word-wrap: break-word;      
+      overflow-wrap: break-word;
+    }
+
+    #inactiveTabMessage p {
+      margin: 0.5em 0;            /* spacing between lines */
+      font-size: 1.2em;           /* readable font size */
+    }
+
+    /* Responsive font sizing */
+    @media (max-width: 480px) {
+      #inactiveTabMessage p { font-size: 1em; }
+    }
+    @media (max-width: 360px) {
+      #inactiveTabMessage p { font-size: 0.9em; }
     }
   </style>
 </head>
@@ -48,13 +83,7 @@
   </div>
 
   <!-- Message for second tab -->
-  <div id="inactiveTabMessage" style="display:none; 
-     flex-direction:column; 
-     align-items:center; 
-     justify-content:center; 
-     text-align:center; 
-     padding: 0 2em; 
-     height:100%;">
+  <div id="inactiveTabMessage">
     <p>AR is already active in another tab.</p>
     <p>Please close this tab and switch back to continue using AR.</p>
   </div>
@@ -138,7 +167,7 @@
 
     // This tab can start AR
     localStorage.setItem(AR_FLAG_KEY,"true");
-    initAR(); // kick off all your AR logic below
+    initAR(); // kick off all your AR logic
   }, 50);
 
   // Keep heartbeat updated
@@ -152,9 +181,6 @@
   // AR logic
   // -----------------------
   async function initAR(){
-    // -----------------------
-    // Elements
-    // -----------------------
     const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
     const restartBtn = document.getElementById("restartAR");
@@ -169,27 +195,14 @@
     const stillWatchingBtn = document.getElementById("stillWatchingBtn");
     const TOTAL_VIDEOS = 60;
 
-    let lastIndex=-1;
-    let activeVideo=videoA;
-    let nextVideo=videoB;
-    let activePlane=videoPlaneA;
-    let nextPlane=videoPlaneB;
-    let startClicked=false;
-    let arStartedOnce=false;
-    let isActive=false;
-    let loopCount=0;
+    let lastIndex=-1, activeVideo=videoA, nextVideo=videoB, activePlane=videoPlaneA, nextPlane=videoPlaneB;
+    let startClicked=false, arStartedOnce=false, isActive=false, loopCount=0, targetCurrentlyVisible=false;
     const LOOP_LIMIT=3;
-    let targetCurrentlyVisible=false;
 
-    // -----------------------
-    // User audio preference
-    // -----------------------
     let userAudioPreference = localStorage.getItem("userAudioPref");
     userAudioPreference = userAudioPreference===null?true:userAudioPreference!=="false";
 
-    let audioCtx, audioBuffer, audioSource;
-    let audioLoaded=false;
-    let audioStartTime=0, audioOffset=0;
+    let audioCtx, audioBuffer, audioSource, audioLoaded=false, audioStartTime=0, audioOffset=0;
 
     async function loadAudioOnce(){
       if(audioLoaded) return;
