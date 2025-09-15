@@ -64,11 +64,10 @@
     let nextVideo = videoB;
     let nextPlane = videoPlaneB;
     let isActive = false;
-    let startClicked = false;
     let loopCount = 0;
     const LOOP_LIMIT = 3;
     let targetCurrentlyVisible = false;
-    let sessionActive = false; // NEW: only true after start/restart
+    let sessionActive = false; // only true after Start/Restart
 
     // User audio preference
     let userAudioPreference;
@@ -192,7 +191,6 @@
     });
 
     async function handleTargetFound() {
-      if (!sessionActive) return; // only play if session is active
       isActive = true;
       activePlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
@@ -205,17 +203,16 @@
     function restartARSession() {
       whiteOverlay.style.display = "none";
       restartBtn.style.display = "none";
-      sessionActive = true; // now user explicitly pressed restart
+      sessionActive = true; // user explicitly pressed restart
       if (targetCurrentlyVisible) handleTargetFound();
     }
 
     async function startARSession() {
       try {
-        startClicked = true;
         sessionActive = true; // session now active
-        whiteOverlay.style.display = "none";
         startBtn.style.display = "none";
         restartBtn.style.display = "none";
+        whiteOverlay.style.display = "none";
         activePlane.setAttribute("visible", false);
 
         monitorVideo();
@@ -252,9 +249,9 @@
       localStorage.setItem("userAudioPref", userAudioPreference);
     });
 
-    targetEl.addEventListener("targetFound", () => {
+    targetEl.addEventListener("targetFound", async () => {
       targetCurrentlyVisible = true;
-      if (sessionActive) handleTargetFound();
+      if (sessionActive) await handleTargetFound(); // only play if session active
     });
 
     targetEl.addEventListener("targetLost", () => {
