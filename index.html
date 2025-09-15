@@ -8,18 +8,21 @@
   <style>
     body { margin:0; font-family:sans-serif; }
 
+    /* Full screen overlays */
     #whiteOverlay, #inactiveTabMessage {
       position: fixed; top:0; left:0; width:100%; height:100%;
       display:flex; align-items:center; justify-content:center;
       background:white; z-index:10;
     }
 
+    /* Start/Restart buttons container */
     #preARMessage {
       display:flex;
       flex-direction:column;
       align-items:center;
       justify-content:center;
       height:100%;
+      gap: 1em;
     }
 
     #startAR, #restartAR {
@@ -43,7 +46,7 @@
       padding:1em 2em; font-size:18px; cursor:pointer;
     }
 
-    /* --- Fixed formatting for inactive message --- */
+    /* Inactive tab message formatting */
     #inactiveTabMessage {
       display: none;
       flex-direction: column;
@@ -348,7 +351,7 @@
         if(arStartedOnce){
           startBtn.style.display="none";
           restartBtn.style.display="block";
-          arButtonPressed = false; // <-- prevent auto-play until button pressed
+          arButtonPressed = false;
         } else {
           startBtn.style.display="block";
           restartBtn.style.display="none";
