@@ -55,10 +55,9 @@
      text-align:center; 
      padding: 0 2em; 
      height:100%;">
-  <p>AR is already active in another tab.</p>
-  <p>Please close this tab and switch back to continue using AR.</p>
-</div>
-
+    <p>AR is already active in another tab.</p>
+    <p>Please close this tab and switch back to continue using AR.</p>
+  </div>
 
   <!-- Still Watching -->
   <div id="stillWatchingContainer">
@@ -90,14 +89,52 @@
 (async ()=>{
   const AR_FLAG_KEY = "arActive";
 
+  // -----------------------
+  // Heartbeat logic to auto-reset localStorage when all tabs closed
+  // -----------------------
+  const TAB_ID = Date.now() + '-' + Math.random();
+  const HEARTBEAT_INTERVAL = 1000; // 1 second
+  const TAB_TIMEOUT = 3000; // 3 seconds considered dead
+
+  function updateHeartbeat() {
+    localStorage.setItem('tab_' + TAB_ID, Date.now());
+  }
+
+  window.addEventListener('beforeunload', () => {
+    localStorage.removeItem('tab_' + TAB_ID);
+  });
+
+  function cleanupTabs() {
+    const now = Date.now();
+    let anyAlive = false;
+    for (let key in localStorage) {
+      if (key.startsWith('tab_')) {
+        const last = parseInt(localStorage.getItem(key), 10);
+        if (now - last < TAB_TIMEOUT) {
+          anyAlive = true;
+        } else {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+    if (!anyAlive) {
+      localStorage.removeItem('arActive');
+      localStorage.removeItem('userAudioPref');
+    }
+  }
+
+  updateHeartbeat();
+  setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
+  setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
+
+  // -----------------------
+  // Single-tab enforcement
+  // -----------------------
   function showInactiveMessage(){
     document.getElementById("whiteOverlay").style.display="none";
     document.getElementById("inactiveTabMessage").style.display="flex";
   }
 
-  // -----------------------
-  // Single-tab enforcement
-  // -----------------------
   if(localStorage.getItem(AR_FLAG_KEY)==="true"){
     showInactiveMessage();
     return; 
