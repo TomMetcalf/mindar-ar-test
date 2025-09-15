@@ -18,14 +18,14 @@ body { margin: 0; overflow: hidden; font-family: sans-serif; }
 </head>
 <body>
 
-<!-- ------------------------
-     Singleton AR enforcement
------------------------- -->
 <script>
+// ------------------------
+// Singleton AR enforcement
+// ------------------------
 const SESSION_KEY = "arSessionActive";
 
-// If another tab is active, show warning immediately
 if (localStorage.getItem(SESSION_KEY) === "true") {
+    // Show warning immediately
     document.body.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:24px;text-align:center;padding:20px;">
             Only one AR tab can be open.<br>Please close this tab and return to the open session.
@@ -34,34 +34,41 @@ if (localStorage.getItem(SESSION_KEY) === "true") {
     throw new Error("Another AR tab is active");
 }
 
-// Mark this tab as active
+// No other tab, mark this one as active
 localStorage.setItem(SESSION_KEY, "true");
 
 // Clear session on tab close/refresh
-window.addEventListener("beforeunload", () => { localStorage.removeItem(SESSION_KEY); });
-</script>
+window.addEventListener("beforeunload", () => localStorage.removeItem(SESSION_KEY));
 
-<!-- AR UI -->
-<div id="whiteOverlay"></div>
-<button id="startAR">Start AR</button>
-<button id="restartAR">Restart AR</button>
-<button id="audioToggle">🔇</button>
-<div id="stillWatchingContainer">
-    <button id="stillWatchingBtn">Still Watching?</button>
+// ------------------------
+// Inject AR UI only for this tab
+// ------------------------
+document.body.innerHTML = `
+<div id="arUI">
+    <div id="whiteOverlay"></div>
+    <button id="startAR">Start AR</button>
+    <button id="restartAR">Restart AR</button>
+    <button id="audioToggle">🔇</button>
+    <div id="stillWatchingContainer">
+        <button id="stillWatchingBtn">Still Watching?</button>
+    </div>
+    <video id="videoA" style="display:none" muted playsinline></video>
+    <video id="videoB" style="display:none" muted playsinline></video>
+
+    <a-scene id="arScene" mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
+             color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights"
+             vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
+             framerate="12" look-at="[camera]">
+        <a-camera id="camera" position="0 0 0" look-controls="enabled: false"></a-camera>
+        <a-entity id="target0" mindar-image-target="targetIndex: 0">
+            <a-plane id="videoPlaneA" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader: flat; src: #videoA"></a-plane>
+            <a-plane id="videoPlaneB" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader: flat; src: #videoB"></a-plane>
+        </a-entity>
+    </a-scene>
 </div>
-<video id="videoA" style="display:none" muted playsinline></video>
-<video id="videoB" style="display:none" muted playsinline></video>
+`;
 
-<a-scene id="arScene" mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
-         color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights"
-         vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
-         framerate="12" look-at="[camera]">
-    <a-camera id="camera" position="0 0 0" look-controls="enabled: false"></a-camera>
-    <a-entity id="target0" mindar-image-target="targetIndex: 0">
-        <a-plane id="videoPlaneA" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader: flat; src: #videoA"></a-plane>
-        <a-plane id="videoPlaneB" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader: flat; src: #videoB"></a-plane>
-    </a-entity>
-</a-scene>
+</script>
 
 <script>
 // ------------------------
