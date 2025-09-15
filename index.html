@@ -56,18 +56,28 @@
       padding: 0 1em;
       box-sizing: border-box;
     }
+
     #inactiveTabInner {
-      max-width: 600px;
+      max-width: 600px; /* constrain width */
       width: 100%;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
+
     #inactiveTabInner p {
       margin: 0.5em 0;
       font-size: 1.2em;
       word-wrap: break-word;
     }
-    @media (max-width: 480px) { #inactiveTabInner p { font-size: 1em; } }
-    @media (max-width: 360px) { #inactiveTabInner p { font-size: 0.9em; } }
+
+    @media (max-width: 480px) {
+      #inactiveTabInner p { font-size: 1em; }
+    }
+    @media (max-width: 360px) {
+      #inactiveTabInner p { font-size: 0.9em; }
+    }
   </style>
 </head>
 <body>
@@ -116,131 +126,60 @@
 
 <script>
 (async ()=>{
-  // ----- Single-owner, owner-only heartbeat (iOS friendly) -----
-  const OWNER_KEY = 'arOwner'; // JSON: { tabId, lastSeen }
-  const OWNER_PULSE_MS = 1000;
-  const OWNER_TIMEOUT_MS = 5000; // consider owner stale after 5s
-  const myId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const AR_FLAG_KEY = "arActive";
+  const TAB_ID = Date.now() + '-' + Math.random();
+  const HEARTBEAT_INTERVAL = 1000;
+  const TAB_TIMEOUT = 3000;
 
-  let isOwner = false;
-  let ownerPulseTimer = null;
-  let watchdogTimer = null;
-
-  function nowTs(){ return Date.now(); }
-
-  function setOwnerRecord(record){
-    localStorage.setItem(OWNER_KEY, JSON.stringify(record));
-  }
-  function getOwnerRecord(){
-    const raw = localStorage.getItem(OWNER_KEY);
-    if(!raw) return null;
-    try{ return JSON.parse(raw); } catch { return null; }
-  }
-  function ownerIsFresh(rec){
-    if(!rec || !rec.lastSeen) return false;
-    return (nowTs() - rec.lastSeen) < OWNER_TIMEOUT_MS;
-  }
-
-  function startOwnerPulse(){
-    stopOwnerPulse();
-    ownerPulseTimer = setInterval(()=>{
-      setOwnerRecord({ tabId: myId, lastSeen: nowTs() });
-    }, OWNER_PULSE_MS);
-    // write immediately
-    setOwnerRecord({ tabId: myId, lastSeen: nowTs() });
-  }
-  function stopOwnerPulse(){
-    if(ownerPulseTimer){ clearInterval(ownerPulseTimer); ownerPulseTimer = null; }
+  function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
+  function cleanupTabs() {
+    const now = Date.now();
+    let anyAlive = false;
+    for (let key in localStorage) {
+      if (key.startsWith('tab_')) {
+        const last = parseInt(localStorage.getItem(key),10);
+        if(now - last < TAB_TIMEOUT) anyAlive = true;
+        else localStorage.removeItem(key);
+      }
+    }
+    if(!anyAlive){
+      localStorage.removeItem(AR_FLAG_KEY);
+      localStorage.removeItem('userAudioPref');
+    }
   }
 
   function showInactiveMessage(){
     document.getElementById("whiteOverlay").style.display="none";
     document.getElementById("inactiveTabMessage").style.display="flex";
   }
-  function hideInactiveMessage(){
-    document.getElementById("inactiveTabMessage").style.display="none";
-  }
 
-  function beginOwnership(){
-    isOwner = true;
-    hideInactiveMessage();
-    startOwnerPulse();
-    initAR();
-  }
-  function relinquishOwnership(){
-    isOwner = false;
-    stopOwnerPulse();
-    showInactiveMessage();
-  }
+  updateHeartbeat();
 
-  function tryClaimOwnership(){
-    const existing = getOwnerRecord();
-    const stale = !ownerIsFresh(existing);
-
-    if(!existing || stale){
-      // Attempt takeover
-      setOwnerRecord({ tabId: myId, lastSeen: nowTs() });
+  setTimeout(()=>{
+    const now = Date.now();
+    let anyAlive = false;
+    for(let key in localStorage){
+      if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
+        const last = parseInt(localStorage.getItem(key),10);
+        if(now - last < TAB_TIMEOUT) anyAlive = true;
+        else localStorage.removeItem(key);
+      }
     }
-    // Verify ownership
-    const verify = getOwnerRecord();
-    if(verify && verify.tabId === myId){
-      beginOwnership();
-    } else {
-      // Could not claim; become watcher
+    if(anyAlive){
       showInactiveMessage();
-      startWatcher();
+      return;
     }
-  }
 
-  function startWatcher(){
-    stopWatcher();
-    watchdogTimer = setInterval(()=>{
-      const rec = getOwnerRecord();
-      if(!ownerIsFresh(rec)){
-        // Owner stale -> try to claim
-        tryClaimOwnership();
-      }
-    }, Math.max(OWNER_PULSE_MS, 1500));
-  }
-  function stopWatcher(){
-    if(watchdogTimer){ clearInterval(watchdogTimer); watchdogTimer = null; }
-  }
+    localStorage.setItem(AR_FLAG_KEY,"true");
+    initAR();
+  }, 50);
 
-  // React to external changes (another tab taking/losing ownership)
-  window.addEventListener('storage', (e)=>{
-    if(e.key !== OWNER_KEY) return;
-    const rec = getOwnerRecord();
-
-    if(isOwner){
-      // If someone else becomes owner, relinquish immediately
-      if(rec && rec.tabId !== myId){
-        relinquishOwnership();
-      }
-    } else {
-      // If there is a fresh owner, keep showing message; if stale or cleared, try to claim
-      if(!ownerIsFresh(rec)){
-        tryClaimOwnership();
-      } else {
-        showInactiveMessage();
-      }
-    }
-  });
-
-  // Best-effort cleanup when closing (won't fire if iOS suspends)
-  window.addEventListener('beforeunload', ()=>{
-    if(isOwner){
-      const rec = getOwnerRecord();
-      if(rec && rec.tabId === myId){
-        localStorage.removeItem(OWNER_KEY);
-      }
-    }
-  });
-
-  // Initial attempt: claim or watch
-  tryClaimOwnership();
+  setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
+  setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
+  window.addEventListener('beforeunload', ()=>{ localStorage.removeItem('tab_'+TAB_ID); });
 
   // -----------------------
-  // AR logic (unchanged)
+  // AR logic
   // -----------------------
   async function initAR(){
     const whiteOverlay = document.getElementById("whiteOverlay");
