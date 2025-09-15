@@ -7,14 +7,20 @@
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
     body { margin:0; font-family:sans-serif; }
-    #whiteOverlay, #inactiveTabMessage, #preARMessage {
+    #whiteOverlay, #inactiveTabMessage {
       position: fixed; top:0; left:0; width:100%; height:100%;
       display:flex; align-items:center; justify-content:center;
       background:white; z-index:10;
     }
+    #preARMessage {
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      height:100%;
+    }
     #startAR, #restartAR {
       padding:1em 2em; font-size:18px; cursor:pointer;
-      position: relative;
     }
     #restartAR { display:none; }
     #audioToggle {
@@ -28,11 +34,8 @@
   <!-- Pre-AR Overlay -->
   <div id="whiteOverlay">
     <div id="preARMessage">
-      <div>
-        <p>Welcome! Click Start AR to begin.</p>
-        <button id="startAR">Start AR</button>
-        <button id="restartAR">Restart AR</button>
-      </div>
+      <button id="startAR">Start AR</button>
+      <button id="restartAR">Restart AR</button>
     </div>
   </div>
 
@@ -72,20 +75,14 @@
   }
 
   // -----------------------
-  // Check if AR is active in another tab
+  // Single-tab enforcement
   // -----------------------
   if(localStorage.getItem(AR_FLAG_KEY)==="true"){
     showInactiveMessage();
-    return; // STOP: do not initialize AR in this tab
+    return; // Stop loading AR in this tab
   }
-
-  // Mark this tab as active AR
   localStorage.setItem(AR_FLAG_KEY,"true");
-
-  // Clear AR flag when leaving
   window.addEventListener("beforeunload", ()=>{ localStorage.setItem(AR_FLAG_KEY,"false"); });
-
-  // Listen for other tabs activating AR
   window.addEventListener("storage",(e)=>{
     if(e.key===AR_FLAG_KEY && e.newValue==="true"){
       showInactiveMessage();
@@ -113,14 +110,14 @@
   let activePlane=videoPlaneA;
   let nextPlane=videoPlaneB;
   let startClicked=false;
-  let arStartedOnce=false;   // New flag to track if AR was started at least once
+  let arStartedOnce=false;
   let isActive=false;
   let loopCount=0;
   const LOOP_LIMIT=3;
   let targetCurrentlyVisible=false;
 
   // -----------------------
-  // User Audio Preference
+  // User audio preference
   // -----------------------
   let userAudioPreference = localStorage.getItem("userAudioPref");
   userAudioPreference = userAudioPreference===null?true:userAudioPreference!=="false";
@@ -159,7 +156,7 @@
   }
 
   // -----------------------
-  // Video Helpers
+  // Video helpers
   // -----------------------
   function pickRandomIndex(){
     let idx;
@@ -205,7 +202,7 @@
   }
 
   // -----------------------
-  // Target Found
+  // Target found
   // -----------------------
   async function handleTargetFound(){
     if(!startClicked) return;
@@ -219,11 +216,11 @@
   }
 
   // -----------------------
-  // Event Listeners
+  // Event listeners
   // -----------------------
   startBtn.addEventListener("click",()=>{
     startClicked=true;
-    arStartedOnce=true;   // Mark that AR has started at least once
+    arStartedOnce=true;
     whiteOverlay.style.display="none";
     arScene.style.display="block";
     monitorVideo();
@@ -276,7 +273,7 @@
       arScene.style.display="none";
       audioToggleBtn.style.display="none";
       
-      // Show the correct button
+      // Show only one button at a time
       if(arStartedOnce){
         startBtn.style.display="none";
         restartBtn.style.display="block";
