@@ -52,18 +52,17 @@
       text-align: center;
       padding: 0 2em;
       height: 100%;
-      max-width: 600px;           /* prevent stretching too wide */
-      margin: 0 auto;             /* center horizontally */
-      word-wrap: break-word;      
+      max-width: 600px;
+      margin: 0 auto;
+      word-wrap: break-word;
       overflow-wrap: break-word;
     }
 
     #inactiveTabMessage p {
-      margin: 0.5em 0;            /* spacing between lines */
-      font-size: 1.2em;           /* readable font size */
+      margin: 0.5em 0;
+      font-size: 1.2em;
     }
 
-    /* Responsive font sizing */
     @media (max-width: 480px) {
       #inactiveTabMessage p { font-size: 1em; }
     }
@@ -118,13 +117,10 @@
 (async ()=>{
   const AR_FLAG_KEY = "arActive";
   const TAB_ID = Date.now() + '-' + Math.random();
-  const HEARTBEAT_INTERVAL = 1000; // 1s
-  const TAB_TIMEOUT = 3000; // 3s
+  const HEARTBEAT_INTERVAL = 1000;
+  const TAB_TIMEOUT = 3000;
 
-  function updateHeartbeat() {
-    localStorage.setItem('tab_' + TAB_ID, Date.now());
-  }
-
+  function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
   function cleanupTabs() {
     const now = Date.now();
     let anyAlive = false;
@@ -146,10 +142,8 @@
     document.getElementById("inactiveTabMessage").style.display="flex";
   }
 
-  // Write initial heartbeat
   updateHeartbeat();
 
-  // Delay initial check slightly so this tab registers before detection
   setTimeout(()=>{
     const now = Date.now();
     let anyAlive = false;
@@ -165,17 +159,13 @@
       return;
     }
 
-    // This tab can start AR
     localStorage.setItem(AR_FLAG_KEY,"true");
-    initAR(); // kick off all your AR logic
+    initAR();
   }, 50);
 
-  // Keep heartbeat updated
   setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
   setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
-  window.addEventListener('beforeunload', ()=>{
-    localStorage.removeItem('tab_'+TAB_ID);
-  });
+  window.addEventListener('beforeunload', ()=>{ localStorage.removeItem('tab_'+TAB_ID); });
 
   // -----------------------
   // AR logic
@@ -196,7 +186,7 @@
     const TOTAL_VIDEOS = 60;
 
     let lastIndex=-1, activeVideo=videoA, nextVideo=videoB, activePlane=videoPlaneA, nextPlane=videoPlaneB;
-    let startClicked=false, arStartedOnce=false, isActive=false, loopCount=0, targetCurrentlyVisible=false;
+    let startClicked=false, arStartedOnce=false, arButtonPressed=false, isActive=false, loopCount=0, targetCurrentlyVisible=false;
     const LOOP_LIMIT=3;
 
     let userAudioPreference = localStorage.getItem("userAudioPref");
@@ -288,7 +278,7 @@
     });
 
     async function handleTargetFound(){
-      if(!startClicked) return;
+      if(!arButtonPressed) return;
       isActive=true;
       activePlane.setAttribute("visible",true);
       arScene.style.background="#ffffff";
@@ -299,8 +289,9 @@
     }
 
     startBtn.addEventListener("click",()=>{
-      startClicked=true;
-      arStartedOnce=true;
+      startClicked = true;
+      arButtonPressed = true;
+      arStartedOnce = true;
       whiteOverlay.style.display="none";
       arScene.style.display="block";
       monitorVideo();
@@ -308,7 +299,8 @@
     });
 
     restartBtn.addEventListener("click",()=>{
-      startClicked=true;
+      startClicked = true;
+      arButtonPressed = true;
       whiteOverlay.style.display="none";
       arScene.style.display="block";
       monitorVideo();
@@ -323,8 +315,8 @@
     });
 
     targetEl.addEventListener("targetFound", ()=>{
-      targetCurrentlyVisible=true;
-      if(startClicked) handleTargetFound();
+      targetCurrentlyVisible = true;
+      if(arButtonPressed) handleTargetFound();
     });
 
     targetEl.addEventListener("targetLost", ()=>{
@@ -352,10 +344,11 @@
         whiteOverlay.style.display="block";
         arScene.style.display="none";
         audioToggleBtn.style.display="none";
-        
+
         if(arStartedOnce){
           startBtn.style.display="none";
           restartBtn.style.display="block";
+          arButtonPressed = false; // <-- prevent auto-play until button pressed
         } else {
           startBtn.style.display="block";
           restartBtn.style.display="none";
