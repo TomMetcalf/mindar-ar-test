@@ -48,30 +48,35 @@
 
     /* Inactive tab message formatting */
     #inactiveTabMessage {
-      display: none;
+      display: none; /* hidden by default */
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 0 2em;
-      height: 100%;
-      max-width: 600px;
-      margin: 0 auto;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
+      padding: 0 1em;
       box-sizing: border-box;
     }
 
-    #inactiveTabMessage p {
+    #inactiveTabInner {
+      max-width: 600px; /* constrain width */
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #inactiveTabInner p {
       margin: 0.5em 0;
       font-size: 1.2em;
+      word-wrap: break-word;
     }
 
     @media (max-width: 480px) {
-      #inactiveTabMessage p { font-size: 1em; }
+      #inactiveTabInner p { font-size: 1em; }
     }
     @media (max-width: 360px) {
-      #inactiveTabMessage p { font-size: 0.9em; }
+      #inactiveTabInner p { font-size: 0.9em; }
     }
   </style>
 </head>
@@ -87,8 +92,10 @@
 
   <!-- Message for second tab -->
   <div id="inactiveTabMessage">
-    <p>AR is already active in another tab.</p>
-    <p>Please close this tab and switch back to the active tab to continue using AR.</p>
+    <div id="inactiveTabInner">
+      <p>AR is already active in another tab.</p>
+      <p>Please close this tab and switch back to the active tab to continue using AR.</p>
+    </div>
   </div>
 
   <!-- Still Watching -->
@@ -121,29 +128,21 @@
 (async ()=>{
   const AR_FLAG_KEY = "arActive";
   const TAB_ID = Date.now() + '-' + Math.random();
-  const HEARTBEAT_INTERVAL = 1000;   // 1s
-  const TAB_TIMEOUT = 4000;          // 4s expiry
+  const HEARTBEAT_INTERVAL = 1000;
+  const TAB_TIMEOUT = 3000;
 
-  function updateHeartbeat() {
-    const now = Date.now();
-    localStorage.setItem('tab_' + TAB_ID, now);
-    localStorage.setItem(AR_FLAG_KEY, now); // update AR flag with timestamp
-  }
-
+  function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
   function cleanupTabs() {
     const now = Date.now();
     let anyAlive = false;
     for (let key in localStorage) {
       if (key.startsWith('tab_')) {
         const last = parseInt(localStorage.getItem(key),10);
-        if (now - last < TAB_TIMEOUT) {
-          anyAlive = true;
-        } else {
-          localStorage.removeItem(key);
-        }
+        if(now - last < TAB_TIMEOUT) anyAlive = true;
+        else localStorage.removeItem(key);
       }
     }
-    if (!anyAlive) {
+    if(!anyAlive){
       localStorage.removeItem(AR_FLAG_KEY);
       localStorage.removeItem('userAudioPref');
     }
@@ -154,29 +153,33 @@
     document.getElementById("inactiveTabMessage").style.display="flex";
   }
 
-  // Initial heartbeat + check
   updateHeartbeat();
+
   setTimeout(()=>{
     const now = Date.now();
-    const lastSeen = parseInt(localStorage.getItem(AR_FLAG_KEY), 10);
-    if (!isNaN(lastSeen) && (now - lastSeen < TAB_TIMEOUT) ) {
-      // Another tab updated recently
+    let anyAlive = false;
+    for(let key in localStorage){
+      if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
+        const last = parseInt(localStorage.getItem(key),10);
+        if(now - last < TAB_TIMEOUT) anyAlive = true;
+        else localStorage.removeItem(key);
+      }
+    }
+    if(anyAlive){
       showInactiveMessage();
       return;
     }
-    // No active tab found → take ownership
-    localStorage.setItem(AR_FLAG_KEY, now);
+
+    localStorage.setItem(AR_FLAG_KEY,"true");
     initAR();
   }, 50);
 
   setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
   setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
-  window.addEventListener('beforeunload', ()=>{
-    localStorage.removeItem('tab_'+TAB_ID);
-  });
+  window.addEventListener('beforeunload', ()=>{ localStorage.removeItem('tab_'+TAB_ID); });
 
   // -----------------------
-  // AR logic (unchanged from your version)
+  // AR logic
   // -----------------------
   async function initAR(){
     const whiteOverlay = document.getElementById("whiteOverlay");
