@@ -68,6 +68,7 @@
     let loopCount = 0;
     const LOOP_LIMIT = 3;
     let targetCurrentlyVisible = false;
+    let sessionActive = false; // NEW: only true after start/restart
 
     // User audio preference
     let userAudioPreference;
@@ -191,7 +192,7 @@
     });
 
     async function handleTargetFound() {
-      if (!startClicked) return;
+      if (!sessionActive) return; // only play if session is active
       isActive = true;
       activePlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
@@ -204,12 +205,14 @@
     function restartARSession() {
       whiteOverlay.style.display = "none";
       restartBtn.style.display = "none";
+      sessionActive = true; // now user explicitly pressed restart
       if (targetCurrentlyVisible) handleTargetFound();
     }
 
     async function startARSession() {
       try {
         startClicked = true;
+        sessionActive = true; // session now active
         whiteOverlay.style.display = "none";
         startBtn.style.display = "none";
         restartBtn.style.display = "none";
@@ -222,7 +225,6 @@
         const system = scene.systems["mindar-image"];
         const videoEl = system.video;
 
-        // Retry if camera doesn’t start within 2s
         let retryTimeout = setTimeout(() => {
           if (videoEl && videoEl.readyState < 2) {
             console.warn("Camera failed to start, retrying...");
@@ -252,7 +254,7 @@
 
     targetEl.addEventListener("targetFound", () => {
       targetCurrentlyVisible = true;
-      if (startClicked) handleTargetFound();
+      if (sessionActive) handleTargetFound();
     });
 
     targetEl.addEventListener("targetLost", () => {
