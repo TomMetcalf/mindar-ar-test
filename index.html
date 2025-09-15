@@ -27,6 +27,14 @@
       position: fixed; bottom:5%; right:5%; z-index:20; padding:0.5em 1em; font-size:18px; cursor:pointer; display:none;
     }
     #arScene { display:none; }
+    #stillWatchingContainer {
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background:white; z-index:50; display:none;
+      align-items:center; justify-content:center;
+    }
+    #stillWatchingBtn {
+      padding:1em 2em; font-size:18px; cursor:pointer;
+    }
   </style>
 </head>
 <body>
@@ -42,6 +50,11 @@
   <!-- Message for second tab -->
   <div id="inactiveTabMessage" style="display:none;">
     <p>AR is already active in another tab. Please switch back to continue.</p>
+  </div>
+
+  <!-- Still Watching -->
+  <div id="stillWatchingContainer">
+    <button id="stillWatchingBtn">Still Watching?</button>
   </div>
 
   <button id="audioToggle">🔇</button>
@@ -79,7 +92,7 @@
   // -----------------------
   if(localStorage.getItem(AR_FLAG_KEY)==="true"){
     showInactiveMessage();
-    return; // Stop loading AR in this tab
+    return; 
   }
   localStorage.setItem(AR_FLAG_KEY,"true");
   window.addEventListener("beforeunload", ()=>{ localStorage.setItem(AR_FLAG_KEY,"false"); });
@@ -102,6 +115,8 @@
   const videoPlaneB = document.getElementById("videoPlaneB");
   const targetEl = document.getElementById("target0");
   const arScene = document.getElementById("arScene");
+  const stillWatchingContainer = document.getElementById("stillWatchingContainer");
+  const stillWatchingBtn = document.getElementById("stillWatchingBtn");
   const TOTAL_VIDEOS = 60;
 
   let lastIndex=-1;
@@ -199,7 +214,18 @@
     nextVideo.pause();
     stopAudio();
     audioToggleBtn.style.display="none";
+    stillWatchingContainer.style.display="flex";
   }
+
+  stillWatchingBtn.addEventListener("click", async ()=>{
+    stillWatchingContainer.style.display="none";
+    loopCount=0;
+    isActive=true;
+    activeVideo.play();
+    activePlane.setAttribute("visible",true);
+    if(userAudioPreference){ await loadAudioOnce(); playAudio(); }
+    audioToggleBtn.style.display="block";
+  });
 
   // -----------------------
   // Target found
