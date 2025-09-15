@@ -80,6 +80,9 @@
     let audioStartTime = 0;
     let audioOffset = 0;
 
+    // -------------------------------
+    // Prewarm helpers
+    // -------------------------------
     async function loadAudioOnce() {
       if (audioLoaded) return;
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -98,12 +101,6 @@
       unlockSource.stop();
     }
 
-    // Prewarm camera
-    const camera = document.getElementById("camera");
-    camera.object3D.visible = false;
-    setTimeout(() => { camera.object3D.visible = true; }, 50);
-
-    // Preload videos
     function pickRandomIndex() {
       let idx;
       do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
@@ -124,9 +121,37 @@
       preloadVideo(videoB);
     }
 
-    prewarmVideos();
-    prewarmAudio();
+    async function prewarmCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach(track => track.stop());
+        console.log("Camera prewarmed");
+      } catch (e) {
+        console.warn("Camera prewarm failed:", e);
+      }
+    }
 
+    function stopCamera() {
+      const videoEl = document.querySelector("video"); // MindAR uses a hidden <video>
+      if (videoEl && videoEl.srcObject) {
+        const tracks = videoEl.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+        videoEl.srcObject = null;
+      }
+    }
+
+    async function restartCamera() {
+      const sceneEl = document.querySelector("a-scene");
+      const mindarSystem = sceneEl.systems["mindar-image"];
+      if (mindarSystem) {
+        await mindarSystem.stop();
+        await mindarSystem.start(); // re-requests the camera
+      }
+    }
+
+    // -------------------------------
+    // Audio play/stop
+    // -------------------------------
     function playAudio() {
       if (!audioBuffer) return;
       stopAudio();
@@ -150,6 +175,9 @@
 
     audioToggleBtn.textContent = userAudioPreference ? "🔊" : "🔇";
 
+    // -------------------------------
+    // Video loop management
+    // -------------------------------
     function swapVideo() {
       const flip = Math.random() < 0.5 ? -1 : 1;
       nextPlane.setAttribute("scale", `${flip} 1 1`);
@@ -190,6 +218,9 @@
       audioToggleBtn.style.display = "block";
     });
 
+    // -------------------------------
+    // Target handling
+    // -------------------------------
     async function handleTargetFound() {
       if (!startClicked) return;
       isActive = true;
@@ -211,9 +242,10 @@
       if (targetCurrentlyVisible) handleTargetFound();
     });
 
-    restartBtn.addEventListener("click", () => {
+    restartBtn.addEventListener("click", async () => {
       whiteOverlay.style.display = "none";
       restartBtn.style.display = "none";
+      await restartCamera();
       if (targetCurrentlyVisible) handleTargetFound();
     });
 
@@ -241,12 +273,16 @@
       audioToggleBtn.style.display = "none";
     });
 
-    document.addEventListener("visibilitychange", () => {
+    // -------------------------------
+    // Visibility handling
+    // -------------------------------
+    document.addEventListener("visibilitychange", async () => {
       if (document.hidden) {
         isActive = false;
         activeVideo.pause();
         nextVideo.pause();
         stopAudio();
+        stopCamera(); // 🔴 actually free the camera
         audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
         activePlane.setAttribute("visible", false);
@@ -257,8 +293,20 @@
         restartBtn.style.display = "block";
         audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
+
+        // 🔥 Prewarm everything again
+        prewarmVideos();
+        prewarmAudio();
+        await prewarmCamera();
       }
     });
+
+    // -------------------------------
+    // Initial prewarm
+    // -------------------------------
+    prewarmVideos();
+    prewarmAudio();
+    prewarmCamera();
   </script>
 </body>
 </html>
