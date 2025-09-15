@@ -201,21 +201,47 @@
       audioToggleBtn.style.display = "block";
     }
 
-    startBtn.addEventListener("click", () => {
-      startClicked = true;
+    function restartARSession() {
       whiteOverlay.style.display = "none";
-      startBtn.style.display = "none";
       restartBtn.style.display = "none";
-      activePlane.setAttribute("visible", false);
-      monitorVideo();
       if (targetCurrentlyVisible) handleTargetFound();
-    });
+    }
 
-    restartBtn.addEventListener("click", () => {
-      whiteOverlay.style.display = "none";
-      restartBtn.style.display = "none";
-      if (targetCurrentlyVisible) handleTargetFound();
-    });
+    async function startARSession() {
+      try {
+        startClicked = true;
+        whiteOverlay.style.display = "none";
+        startBtn.style.display = "none";
+        restartBtn.style.display = "none";
+        activePlane.setAttribute("visible", false);
+
+        monitorVideo();
+        if (targetCurrentlyVisible) handleTargetFound();
+
+        const scene = document.querySelector("a-scene");
+        const system = scene.systems["mindar-image"];
+        const videoEl = system.video;
+
+        // Retry if camera doesn’t start within 2s
+        let retryTimeout = setTimeout(() => {
+          if (videoEl && videoEl.readyState < 2) {
+            console.warn("Camera failed to start, retrying...");
+            restartARSession();
+          }
+        }, 2000);
+
+        videoEl.addEventListener("playing", () => {
+          clearTimeout(retryTimeout);
+        }, { once: true });
+
+      } catch (e) {
+        console.error("Error starting AR:", e);
+        setTimeout(restartARSession, 2000);
+      }
+    }
+
+    startBtn.addEventListener("click", startARSession);
+    restartBtn.addEventListener("click", restartARSession);
 
     audioToggleBtn.addEventListener("click", async () => {
       await loadAudioOnce();
