@@ -18,30 +18,30 @@ body { margin: 0; overflow: hidden; font-family: sans-serif; }
 </head>
 <body>
 
+<!-- ------------------------
+     Singleton AR enforcement
+------------------------ -->
 <script>
-// ------------------------
-// Singleton AR enforcement
-// ------------------------
 const SESSION_KEY = "arSessionActive";
 
+// If another tab is active, show warning immediately
 if (localStorage.getItem(SESSION_KEY) === "true") {
     document.body.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:24px;text-align:center;padding:20px;">
             Only one AR tab can be open.<br>Please close this tab and return to the open session.
         </div>
     `;
-    throw new Error("Another AR tab is active"); // stop all further code execution
+    throw new Error("Another AR tab is active");
 }
 
 // Mark this tab as active
 localStorage.setItem(SESSION_KEY, "true");
 
 // Clear session on tab close/refresh
-window.addEventListener("beforeunload", () => {
-    localStorage.removeItem(SESSION_KEY);
-});
+window.addEventListener("beforeunload", () => { localStorage.removeItem(SESSION_KEY); });
 </script>
 
+<!-- AR UI -->
 <div id="whiteOverlay"></div>
 <button id="startAR">Start AR</button>
 <button id="restartAR">Restart AR</button>
@@ -64,6 +64,9 @@ window.addEventListener("beforeunload", () => {
 </a-scene>
 
 <script>
+// ------------------------
+// Original AR logic
+// ------------------------
 const whiteOverlay = document.getElementById("whiteOverlay");
 const startBtn = document.getElementById("startAR");
 const restartBtn = document.getElementById("restartAR");
@@ -238,7 +241,6 @@ async function startARSession() {
         const scene = document.querySelector("a-scene");
         const system = scene.systems["mindar-image"];
         const videoEl = system.video;
-        // Retry if camera doesn’t start within 2s
         let retryTimeout = setTimeout(() => {
             if (videoEl && videoEl.readyState < 2) {
                 console.warn("Camera failed to start, retrying...");
