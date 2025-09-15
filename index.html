@@ -64,10 +64,10 @@
     let nextVideo = videoB;
     let nextPlane = videoPlaneB;
     let isActive = false;
+    let startClicked = false;
     let loopCount = 0;
     const LOOP_LIMIT = 3;
     let targetCurrentlyVisible = false;
-    let sessionActive = false; // only true after Start/Restart
 
     // User audio preference
     let userAudioPreference;
@@ -191,6 +191,7 @@
     });
 
     async function handleTargetFound() {
+      if (!startClicked) return;
       isActive = true;
       activePlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
@@ -203,16 +204,15 @@
     function restartARSession() {
       whiteOverlay.style.display = "none";
       restartBtn.style.display = "none";
-      sessionActive = true; // user explicitly pressed restart
       if (targetCurrentlyVisible) handleTargetFound();
     }
 
     async function startARSession() {
       try {
-        sessionActive = true; // session now active
+        startClicked = true;
+        whiteOverlay.style.display = "none";
         startBtn.style.display = "none";
         restartBtn.style.display = "none";
-        whiteOverlay.style.display = "none";
         activePlane.setAttribute("visible", false);
 
         monitorVideo();
@@ -222,6 +222,7 @@
         const system = scene.systems["mindar-image"];
         const videoEl = system.video;
 
+        // Retry if camera doesn’t start within 2s
         let retryTimeout = setTimeout(() => {
           if (videoEl && videoEl.readyState < 2) {
             console.warn("Camera failed to start, retrying...");
@@ -249,9 +250,9 @@
       localStorage.setItem("userAudioPref", userAudioPreference);
     });
 
-    targetEl.addEventListener("targetFound", async () => {
+    targetEl.addEventListener("targetFound", () => {
       targetCurrentlyVisible = true;
-      if (sessionActive) await handleTargetFound(); // only play if session active
+      if (startClicked) handleTargetFound();
     });
 
     targetEl.addEventListener("targetLost", () => {
