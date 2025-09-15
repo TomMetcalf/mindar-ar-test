@@ -29,13 +29,13 @@
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
 
-  <a-scene id="arScene" 
-           mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1" 
-           color-space="sRGB" 
-           renderer="colorManagement: true, physicallyCorrectLights" 
-           vr-mode-ui="enabled: false" 
-           device-orientation-permission-ui="enabled: false" 
-           framerate="12" 
+  <a-scene id="arScene"
+           mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth: true; smoothCount: 5; smoothTolerance: 0.1"
+           color-space="sRGB"
+           renderer="colorManagement: true, physicallyCorrectLights"
+           vr-mode-ui="enabled: false"
+           device-orientation-permission-ui="enabled: false"
+           framerate="12"
            look-at="[camera]">
     <a-camera id="camera" position="0 0 0" look-controls="enabled: false"></a-camera>
     <a-entity id="target0" mindar-image-target="targetIndex: 0">
@@ -214,7 +214,6 @@
         startBtn.style.display = "none";
         restartBtn.style.display = "none";
         activePlane.setAttribute("visible", false);
-
         monitorVideo();
         if (targetCurrentlyVisible) handleTargetFound();
 
@@ -222,7 +221,6 @@
         const system = scene.systems["mindar-image"];
         const videoEl = system.video;
 
-        // Retry if camera doesn’t start within 2s
         let retryTimeout = setTimeout(() => {
           if (videoEl && videoEl.readyState < 2) {
             console.warn("Camera failed to start, retrying...");
@@ -230,10 +228,7 @@
           }
         }, 2000);
 
-        videoEl.addEventListener("playing", () => {
-          clearTimeout(retryTimeout);
-        }, { once: true });
-
+        videoEl.addEventListener("playing", () => { clearTimeout(retryTimeout); }, { once: true });
       } catch (e) {
         console.error("Error starting AR:", e);
         setTimeout(restartARSession, 2000);
