@@ -65,6 +65,7 @@
     let nextPlane = videoPlaneB;
     let isActive = false;
     let startClicked = false;
+    let restartReady = false; // NEW: user must press restart
     let loopCount = 0;
     const LOOP_LIMIT = 3;
     let targetCurrentlyVisible = false;
@@ -191,7 +192,7 @@
     });
 
     async function handleTargetFound() {
-      if (!startClicked) return;
+      if (!(startClicked || restartReady)) return; // only start if user pressed start/restart
       isActive = true;
       activePlane.setAttribute("visible", true);
       document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff);
@@ -202,42 +203,35 @@
     }
 
     function restartARSession() {
+      restartReady = true; // user pressed restart
       whiteOverlay.style.display = "none";
       restartBtn.style.display = "none";
       if (targetCurrentlyVisible) handleTargetFound();
     }
 
     async function startARSession() {
-      try {
-        startClicked = true;
-        whiteOverlay.style.display = "none";
-        startBtn.style.display = "none";
-        restartBtn.style.display = "none";
-        activePlane.setAttribute("visible", false);
+      startClicked = true;
+      whiteOverlay.style.display = "none";
+      startBtn.style.display = "none";
+      restartBtn.style.display = "none";
+      activePlane.setAttribute("visible", false);
 
-        monitorVideo();
-        if (targetCurrentlyVisible) handleTargetFound();
+      monitorVideo();
+      if (targetCurrentlyVisible) handleTargetFound();
 
-        const scene = document.querySelector("a-scene");
-        const system = scene.systems["mindar-image"];
-        const videoEl = system.video;
+      const scene = document.querySelector("a-scene");
+      const system = scene.systems["mindar-image"];
+      const videoEl = system.video;
 
-        // Retry if camera doesn’t start within 2s
-        let retryTimeout = setTimeout(() => {
-          if (videoEl && videoEl.readyState < 2) {
-            console.warn("Camera failed to start, retrying...");
-            restartARSession();
-          }
-        }, 2000);
+      // Retry if camera doesn’t start within 2s
+      let retryTimeout = setTimeout(() => {
+        if (videoEl && videoEl.readyState < 2) {
+          console.warn("Camera failed to start, retrying...");
+          restartARSession();
+        }
+      }, 2000);
 
-        videoEl.addEventListener("playing", () => {
-          clearTimeout(retryTimeout);
-        }, { once: true });
-
-      } catch (e) {
-        console.error("Error starting AR:", e);
-        setTimeout(restartARSession, 2000);
-      }
+      videoEl.addEventListener("playing", () => { clearTimeout(retryTimeout); }, { once: true });
     }
 
     startBtn.addEventListener("click", startARSession);
@@ -252,7 +246,7 @@
 
     targetEl.addEventListener("targetFound", () => {
       targetCurrentlyVisible = true;
-      if (startClicked) handleTargetFound();
+      if (startClicked || restartReady) handleTargetFound();
     });
 
     targetEl.addEventListener("targetLost", () => {
@@ -277,6 +271,7 @@
         stillWatchingContainer.style.display = "none";
         activePlane.setAttribute("visible", false);
         nextPlane.setAttribute("visible", false);
+        restartReady = false; // reset flag when leaving tab
       } else {
         whiteOverlay.style.display = "block";
         startBtn.style.display = "none";
