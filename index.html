@@ -14,36 +14,13 @@ body { margin: 0; overflow: hidden; font-family: sans-serif; }
 #stillWatchingContainer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 50; display: none; align-items: center; justify-content: center; }
 #stillWatchingBtn { padding: 1em 2em; font-size: 18px; cursor: pointer; }
 #arScene { display: block; }
+/* Initially hide AR UI until singleton check passes */
+#arUI { display: none; }
 </style>
 </head>
 <body>
 
-<script>
-// ------------------------
-// Singleton AR enforcement
-// ------------------------
-const SESSION_KEY = "arSessionActive";
-
-if (localStorage.getItem(SESSION_KEY) === "true") {
-    // Show warning immediately
-    document.body.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:24px;text-align:center;padding:20px;">
-            Only one AR tab can be open.<br>Please close this tab and return to the open session.
-        </div>
-    `;
-    throw new Error("Another AR tab is active");
-}
-
-// No other tab, mark this one as active
-localStorage.setItem(SESSION_KEY, "true");
-
-// Clear session on tab close/refresh
-window.addEventListener("beforeunload", () => localStorage.removeItem(SESSION_KEY));
-
-// ------------------------
-// Inject AR UI only for this tab
-// ------------------------
-document.body.innerHTML = `
+<!-- AR UI container -->
 <div id="arUI">
     <div id="whiteOverlay"></div>
     <button id="startAR">Start AR</button>
@@ -66,8 +43,31 @@ document.body.innerHTML = `
         </a-entity>
     </a-scene>
 </div>
-`;
 
+<script>
+// ------------------------
+// Singleton AR enforcement
+// ------------------------
+const SESSION_KEY = "arSessionActive";
+
+// Check if another tab is active
+if (localStorage.getItem(SESSION_KEY) === "true") {
+    document.body.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:24px;text-align:center;padding:20px;">
+            Only one AR tab can be open.<br>Please close this tab and return to the open session.
+        </div>
+    `;
+    throw new Error("Another AR tab is active");
+}
+
+// Mark this tab as active
+localStorage.setItem(SESSION_KEY, "true");
+
+// Remove flag when this tab closes
+window.addEventListener("beforeunload", () => localStorage.removeItem(SESSION_KEY));
+
+// Show AR UI for this tab
+document.getElementById("arUI").style.display = "block";
 </script>
 
 <script>
@@ -307,5 +307,6 @@ document.addEventListener("visibilitychange", () => {
     }
 });
 </script>
+
 </body>
 </html>
