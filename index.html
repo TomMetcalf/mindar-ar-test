@@ -6,13 +6,58 @@
   <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; font-family: sans-serif; }
-    #whiteOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: white; z-index: 10; }
-    #startAR, #restartAR { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 20; padding: 1em 2em; font-size: 18px; cursor: pointer; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    #whiteOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: white;
+      z-index: 10;
+    }
+    #startAR, #restartAR {
+      position: fixed;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 20;
+      padding: 1em 2em;
+      font-size: 18px;
+      cursor: pointer;
+    }
     #restartAR { display: none; }
-    #audioToggle { position: fixed; bottom: 5%; right: 5%; z-index: 20; padding: 0.5em 1em; font-size: 18px; cursor: pointer; display: none; }
-    #stillWatchingContainer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 50; display: none; align-items: center; justify-content: center; }
-    #stillWatchingBtn { padding: 1em 2em; font-size: 18px; cursor: pointer; }
+    #audioToggle {
+      position: fixed;
+      bottom: 5%;
+      right: 5%;
+      z-index: 20;
+      padding: 0.5em 1em;
+      font-size: 18px;
+      cursor: pointer;
+      display: none;
+    }
+    #stillWatchingContainer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    #stillWatchingBtn {
+      padding: 1em 2em;
+      font-size: 18px;
+      cursor: pointer;
+    }
     #arScene { display: block; }
   </style>
 </head>
@@ -216,18 +261,15 @@
         activePlane.setAttribute("visible", false);
         monitorVideo();
         if (targetCurrentlyVisible) handleTargetFound();
-
         const scene = document.querySelector("a-scene");
         const system = scene.systems["mindar-image"];
         const videoEl = system.video;
-
         let retryTimeout = setTimeout(() => {
           if (videoEl && videoEl.readyState < 2) {
             console.warn("Camera failed to start, retrying...");
             restartARSession();
           }
         }, 2000);
-
         videoEl.addEventListener("playing", () => { clearTimeout(retryTimeout); }, { once: true });
       } catch (e) {
         console.error("Error starting AR:", e);
