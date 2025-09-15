@@ -71,6 +71,9 @@
     const LOOP_LIMIT = 3;
     let targetCurrentlyVisible = false;
 
+    // track if page has actually been hidden before (prevents initial-run hiding)
+    let hasBeenHidden = false;
+
     // MindAR system + running flag
     let mindarSystem = null;
     let arRunning = false;
@@ -92,14 +95,11 @@
     sceneEl.addEventListener('loaded', () => {
       mindarSystem = sceneEl.systems["mindar-image"];
       console.log("mindar system available:", !!mindarSystem);
-
-      // mindar events
       sceneEl.addEventListener("arReady", () => { arRunning = true; console.log("MindAR arReady"); });
       sceneEl.addEventListener("arError", (e) => { arRunning = false; console.warn("MindAR arError", e); });
     });
 
     async function safeStopAR() {
-      // stop MindAR engine if running (releases internal streams)
       if (mindarSystem && arRunning) {
         try {
           await mindarSystem.stop();
@@ -109,13 +109,11 @@
         }
         arRunning = false;
       }
-      // stop any remaining video streams from any <video>
       stopAllVideoStreams();
     }
 
     async function safeStartAR() {
       if (!mindarSystem) {
-        // if not ready yet, wait a short time for the scene to finish loading
         await new Promise(res => {
           if (sceneEl.hasLoaded) return res();
           sceneEl.addEventListener('loaded', res, { once: true });
@@ -123,9 +121,7 @@
         mindarSystem = sceneEl.systems["mindar-image"];
       }
       try {
-        // start the engine (this will request camera)
         await mindarSystem.start();
-        // arReady event will set arRunning=true; but set a fallback
         arRunning = true;
         console.log("mindarSystem.start() requested");
       } catch (e) {
@@ -165,13 +161,17 @@
     }
 
     async function prewarmAudio() {
-      await loadAudioOnce();
-      const unlockSource = audioCtx.createBufferSource();
-      unlockSource.buffer = audioBuffer;
-      unlockSource.connect(audioCtx.destination);
-      try { unlockSource.start(0); } catch (e) { /* some browsers block without gesture */ }
-      try { unlockSource.stop(); } catch (e) {}
-      console.log("audio prewarmed");
+      try {
+        await loadAudioOnce();
+        const unlockSource = audioCtx.createBufferSource();
+        unlockSource.buffer = audioBuffer;
+        unlockSource.connect(audioCtx.destination);
+        try { unlockSource.start(0); } catch (e) {}
+        try { unlockSource.stop(); } catch (e) {}
+        console.log("audio prewarmed");
+      } catch (e) {
+        console.warn("prewarmAudio failed:", e);
+      }
     }
 
     function pickRandomIndex() {
@@ -197,7 +197,6 @@
 
     async function prewarmCamera() {
       try {
-        // request & immediately stop — primes permissions/hardware
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         stream.getTracks().forEach(track => track.stop());
         console.log("camera prewarmed (permission granted and stream closed)");
@@ -282,7 +281,7 @@
       if (!startClicked) return;
       isActive = true;
       activePlane.setAttribute("visible", true);
-      try { document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff); } catch(e){/* ignore */ }
+      try { document.querySelector("a-scene").object3D.background = new THREE.Color(0xffffff); } catch(e){}
       if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
       activeVideo.play();
       if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
@@ -347,11 +346,12 @@
     });
 
     // -------------------------------
-    // Visibility handling
+    // Visibility handling (fixed: do NOT run 'return UI' on initial load)
     // -------------------------------
     document.addEventListener("visibilitychange", async () => {
       if (document.hidden) {
         console.log("tab hidden -> stopping AR + streams");
+        hasBeenHidden = true; // mark that we've actually been hidden
         isActive = false;
         activeVideo.pause();
         nextVideo.pause();
@@ -363,25 +363,31 @@
 
         await safeStopAR(); // ensures mindar releases camera (and stops internal video)
       } else {
-        console.log("tab visible -> prewarming assets");
+        console.log("tab visible -> prewarming assets (only alters UI if we were actually hidden)");
         whiteOverlay.style.display = "block";
-        startBtn.style.display = "none";
-        restartBtn.style.display = "block";
-        audioToggleBtn.style.display = "none";
         stillWatchingContainer.style.display = "none";
+        audioToggleBtn.style.display = "none";
 
-        // prewarm everything quietly before user presses Restart AR
-        prewarmVideos();
-        // audio prewarm may create an AudioContext; may still be gated by gesture in some browsers
-        prewarmAudio().catch(()=>{});
-        await prewarmCamera(); // try to prime camera (permission may be requested)
+        if (hasBeenHidden) {
+          // Only switch the Start/Restart UI if the page was actually hidden before
+          startBtn.style.display = "none";
+          restartBtn.style.display = "block";
+
+          // prewarm everything quietly before user presses Restart AR
+          prewarmVideos();
+          prewarmAudio().catch(()=>{});
+          await prewarmCamera().catch(()=>{});
+        } else {
+          // Initial page load: keep the Start button visible and Restart hidden
+          startBtn.style.display = "block";
+          restartBtn.style.display = "none";
+        }
       }
     });
 
     // -------------------------------
-    // Initial prewarm (page load)
+    // Initial prewarm (page load) - non-blocking, safe
     // -------------------------------
-    // Keep videos + audio prewarmed on first load; but AR engine will NOT auto-start
     prewarmVideos();
     prewarmAudio().catch(()=>{});
     prewarmCamera().catch(()=>{});
