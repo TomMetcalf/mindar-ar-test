@@ -18,7 +18,40 @@ body { margin: 0; overflow: hidden; font-family: sans-serif; }
 </head>
 <body>
 
-<!-- AR UI — fully intact for first tab -->
+<!-- ------------------------
+     Singleton AR check — MUST RUN FIRST
+------------------------- -->
+<script>
+const SESSION_KEY = "arSessionActive";
+
+// If another tab is active, immediately block this tab
+if (localStorage.getItem(SESSION_KEY) === "true") {
+    document.body.innerHTML = `
+        <div style="
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            height:100vh;
+            font-size:24px;
+            text-align:center;
+            padding:20px;
+        ">
+            Only one AR tab can be open.<br>Please close this tab and return to the open session.
+        </div>
+    `;
+    throw new Error("Another AR tab is active");
+}
+
+// Mark this tab as active
+localStorage.setItem(SESSION_KEY, "true");
+
+// Remove the flag when the tab closes
+window.addEventListener("beforeunload", () => localStorage.removeItem(SESSION_KEY));
+</script>
+
+<!-- ------------------------
+     AR UI — fully intact
+------------------------- -->
 <div id="arUI">
     <div id="whiteOverlay"></div>
     <button id="startAR">Start AR</button>
@@ -41,28 +74,6 @@ body { margin: 0; overflow: hidden; font-family: sans-serif; }
         </a-entity>
     </a-scene>
 </div>
-
-<script>
-// ------------------------
-// Singleton AR enforcement
-// ------------------------
-const SESSION_KEY = "arSessionActive";
-
-// Run immediately before any UI interaction
-if (localStorage.getItem(SESSION_KEY) === "true") {
-    // Second tab: show full-page warning and stop further execution
-    document.body.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:24px;text-align:center;padding:20px;">
-            Only one AR tab can be open.<br>Please close this tab and return to the open session.
-        </div>
-    `;
-    throw new Error("Another AR tab is active");
-}
-
-// This tab becomes the active session
-localStorage.setItem(SESSION_KEY, "true");
-window.addEventListener("beforeunload", () => localStorage.removeItem(SESSION_KEY));
-</script>
 
 <script>
 // ------------------------
