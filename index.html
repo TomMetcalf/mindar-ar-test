@@ -73,12 +73,8 @@
       word-wrap: break-word;
     }
 
-    @media (max-width: 480px) {
-      #inactiveTabInner p { font-size: 1em; }
-    }
-    @media (max-width: 360px) {
-      #inactiveTabInner p { font-size: 0.9em; }
-    }
+    @media (max-width: 480px) { #inactiveTabInner p { font-size: 1em; } }
+    @media (max-width: 360px) { #inactiveTabInner p { font-size: 0.9em; } }
   </style>
 </head>
 <body>
@@ -138,17 +134,11 @@
 
       function cleanupTabs() {
         const now = Date.now();
-        let anyAlive = false;
         for (let key in localStorage) {
           if (key.startsWith('tab_')) {
             const last = parseInt(localStorage.getItem(key),10);
-            if(now - last < TAB_TIMEOUT) anyAlive = true;
-            else localStorage.removeItem(key);
+            if(now - last > TAB_TIMEOUT) localStorage.removeItem(key);
           }
-        }
-        if(!anyAlive){
-          localStorage.removeItem(AR_FLAG_KEY);
-          localStorage.removeItem('userAudioPref');
         }
       }
 
@@ -157,26 +147,26 @@
         document.getElementById("inactiveTabMessage").style.display="flex";
       }
 
-      updateHeartbeat();
+      // --- Instant tab check ---
+      updateHeartbeat();   // mark this tab alive
+      cleanupTabs();       // remove stale tabs first
 
-      // --- Android fix: wait for stale tabs to expire ---
-      setTimeout(()=>{
-        cleanupTabs(); // remove old stale tabs first
-        const now = Date.now();
-        let anyAlive = false;
-        for(let key in localStorage){
-          if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
-            const last = parseInt(localStorage.getItem(key),10);
-            if(now - last < TAB_TIMEOUT) anyAlive = true;
-          }
+      // check for any other alive tabs
+      let anyAlive = false;
+      for (let key in localStorage){
+        if (key.startsWith('tab_') && key !== 'tab_' + TAB_ID) {
+          const last = parseInt(localStorage.getItem(key),10);
+          if(Date.now() - last < TAB_TIMEOUT) anyAlive = true;
         }
-        if(anyAlive){
-          showInactiveMessage();
-          return;
-        }
+      }
+
+      if(anyAlive){
+        showInactiveMessage();
+      } else {
         localStorage.setItem(AR_FLAG_KEY,"true");
+        document.getElementById("whiteOverlay").style.display = "flex";
         initAR();
-      }, TAB_TIMEOUT + 100); // wait just over the timeout
+      }
 
       setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
       setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
