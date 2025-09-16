@@ -24,25 +24,43 @@
     }
 
     #startAR, #restartAR {
-      padding: 1em 2em; font-size: 18px; cursor: pointer;
+      padding: 1em 2em;
+      font-size: 18px;
+      cursor: pointer;
     }
+
     #restartAR { display: none; }
 
     #audioToggle {
-      position: fixed; bottom: 5%; right: 5%; z-index: 20;
-      padding: 0.5em 1em; font-size: 18px; cursor: pointer; display: none;
+      position: fixed;
+      bottom: 5%;
+      right: 5%;
+      z-index: 20;
+      padding: 0.5em 1em;
+      font-size: 18px;
+      cursor: pointer;
+      display: none;
     }
 
     #arScene { display: none; }
 
     #stillWatchingContainer {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: white; z-index: 50; display: none;
-      align-items: center; justify-content: center;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
     }
 
     #stillWatchingBtn {
-      padding: 1em 2em; font-size: 18px; cursor: pointer;
+      padding: 1em 2em;
+      font-size: 18px;
+      cursor: pointer;
     }
 
     #inactiveTabMessage {
@@ -56,17 +74,27 @@
     }
 
     #inactiveTabInner {
-      max-width: 600px; width: 100%;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
+      max-width: 600px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
 
     #inactiveTabInner p {
-      margin: 0.5em 0; font-size: 1.2em; word-wrap: break-word;
+      margin: 0.5em 0;
+      font-size: 1.2em;
+      word-wrap: break-word;
     }
 
-    @media (max-width: 480px) { #inactiveTabInner p { font-size: 1em; } }
-    @media (max-width: 360px) { #inactiveTabInner p { font-size: 0.9em; } }
+    @media (max-width: 480px) {
+      #inactiveTabInner p { font-size: 1em; }
+    }
+
+    @media (max-width: 360px) {
+      #inactiveTabInner p { font-size: 0.9em; }
+    }
   </style>
 </head>
 <body>
@@ -94,7 +122,8 @@
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
 
-  <a-scene id="arScene"
+  <a-scene
+    id="arScene"
     mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth:true; smoothCount:5; smoothTolerance:0.1"
     color-space="sRGB"
     renderer="colorManagement:true, physicallyCorrectLights"
@@ -104,75 +133,87 @@
     look-at="[camera]"
   >
     <a-camera id="camera" position="0 0 0" look-controls="enabled:false"></a-camera>
+
     <a-entity id="target0" mindar-image-target="targetIndex:0">
-      <a-plane id="videoPlaneA" width="1.2" height="1.2" position="0 0 0"
-        look-at="[camera]" visible="false" material="shader:flat; src:#videoA"></a-plane>
-      <a-plane id="videoPlaneB" width="1.2" height="1.2" position="0 0 0"
-        look-at="[camera]" visible="false" material="shader:flat; src:#videoB"></a-plane>
+      <a-plane
+        id="videoPlaneA"
+        width="1.2"
+        height="1.2"
+        position="0 0 0"
+        look-at="[camera]"
+        visible="false"
+        material="shader:flat; src:#videoA"
+      ></a-plane>
+      <a-plane
+        id="videoPlaneB"
+        width="1.2"
+        height="1.2"
+        position="0 0 0"
+        look-at="[camera]"
+        visible="false"
+        material="shader:flat; src:#videoB"
+      ></a-plane>
     </a-entity>
   </a-scene>
 
   <script>
     (async () => {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      const isAndroid = /Android/.test(navigator.userAgent);
+      const AR_FLAG_KEY = "arActive";
+      const TAB_ID = Date.now() + '-' + Math.random();
+      const HEARTBEAT_INTERVAL = 1000;
+      const TAB_TIMEOUT = 1000;
 
-      // --- Android logic (keep exactly as before) ---
-      if (isAndroid) {
-        const AR_FLAG_KEY = "arActive";
-        const TAB_ID = Date.now() + '-' + Math.random();
-        const HEARTBEAT_INTERVAL = 1000;
-        const TAB_TIMEOUT = 1000;
-
-        function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
-        function cleanupTabs() {
-          const now = Date.now();
-          let anyAlive = false;
-          for (let key in localStorage) {
-            if (key.startsWith('tab_')) {
-              const last = parseInt(localStorage.getItem(key), 10);
-              if (now - last < TAB_TIMEOUT) anyAlive = true;
-              else localStorage.removeItem(key);
-            }
-          }
-          if (!anyAlive) localStorage.removeItem(AR_FLAG_KEY);
-        }
-
-        function showInactiveMessage() {
-          document.getElementById("whiteOverlay").style.display = "none";
-          document.getElementById("inactiveTabMessage").style.display = "flex";
-        }
-
-        updateHeartbeat();
-        setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
-        setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
-        window.addEventListener('beforeunload', () => { localStorage.removeItem('tab_' + TAB_ID); });
-
-        (() => {
-          cleanupTabs();
-          const now = Date.now();
-          let anyAlive = false;
-          for (let key in localStorage) {
-            if (key.startsWith('tab_') && key !== 'tab_' + TAB_ID) {
-              const last = parseInt(localStorage.getItem(key), 10);
-              if (now - last < TAB_TIMEOUT) anyAlive = true;
-            }
-          }
-          if (anyAlive) showInactiveMessage();
-          else {
-            localStorage.setItem(AR_FLAG_KEY, "true");
-            initAR();
-          }
-        })();
+      function updateHeartbeat() {
+        localStorage.setItem('tab_' + TAB_ID, Date.now());
       }
 
-      // --- iOS logic ---
-      if (isIOS) {
-        initAR(); // ignore multi-tab detection
+      function cleanupTabs() {
+        const now = Date.now();
+        let anyAlive = false;
+        for (let key in localStorage) {
+          if (key.startsWith('tab_')) {
+            const last = parseInt(localStorage.getItem(key), 10);
+            if (now - last < TAB_TIMEOUT) anyAlive = true;
+            else localStorage.removeItem(key);
+          }
+        }
+        if (!anyAlive) localStorage.removeItem(AR_FLAG_KEY);
       }
+
+      function showInactiveMessage() {
+        document.getElementById("whiteOverlay").style.display = "none";
+        document.getElementById("inactiveTabMessage").style.display = "flex";
+      }
+
+      updateHeartbeat();
+      setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
+      setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
+
+      window.addEventListener('beforeunload', () => {
+        localStorage.removeItem('tab_' + TAB_ID);
+      });
+
+      // --- Immediate check for stale tabs ---
+      (() => {
+        cleanupTabs();
+        const now = Date.now();
+        let anyAlive = false;
+        for (let key in localStorage) {
+          if (key.startsWith('tab_') && key !== 'tab_' + TAB_ID) {
+            const last = parseInt(localStorage.getItem(key), 10);
+            if (now - last < TAB_TIMEOUT) anyAlive = true;
+          }
+        }
+        if (anyAlive) {
+          showInactiveMessage();
+        } else {
+          localStorage.setItem(AR_FLAG_KEY, "true");
+          initAR();
+        }
+      })();
 
       // -----------------------
-      // Shared AR logic
+      // AR logic
       // -----------------------
       async function initAR() {
         const whiteOverlay = document.getElementById("whiteOverlay");
@@ -189,9 +230,17 @@
         const stillWatchingBtn = document.getElementById("stillWatchingBtn");
         const TOTAL_VIDEOS = 60;
 
-        let lastIndex = -1, activeVideo = videoA, nextVideo = videoB, activePlane = videoPlaneA, nextPlane = videoPlaneB;
-        let startClicked = false, arStartedOnce = false, arButtonPressed = false;
-        let isActive = false, loopCount = 0, targetCurrentlyVisible = false;
+        let lastIndex = -1,
+          activeVideo = videoA,
+          nextVideo = videoB,
+          activePlane = videoPlaneA,
+          nextPlane = videoPlaneB;
+        let startClicked = false,
+          arStartedOnce = false,
+          arButtonPressed = false,
+          isActive = false,
+          loopCount = 0,
+          targetCurrentlyVisible = false;
         const LOOP_LIMIT = 3;
 
         let userAudioPreference = localStorage.getItem("userAudioPref");
@@ -225,15 +274,18 @@
             try {
               audioSource.stop();
               audioOffset = (audioCtx.currentTime - audioStartTime) % audioBuffer.duration;
-            } catch { }
-            audioSource.disconnect(); audioSource = null;
+            } catch {}
+            audioSource.disconnect();
+            audioSource = null;
           }
           audioToggleBtn.textContent = "🔇";
         }
 
         function pickRandomIndex() {
           let idx;
-          do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
+          do {
+            idx = Math.floor(Math.random() * TOTAL_VIDEOS);
+          } while (idx === lastIndex);
           lastIndex = idx;
           return idx;
         }
@@ -281,17 +333,27 @@
           isActive = true;
           activeVideo.play();
           activePlane.setAttribute("visible", true);
-          if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
+          if (userAudioPreference) {
+            await loadAudioOnce();
+            playAudio();
+          }
           audioToggleBtn.style.display = "block";
         });
 
         async function handleTargetFound() {
+          if (!arButtonPressed) return;
           isActive = true;
           activePlane.setAttribute("visible", true);
           arScene.style.background = "#ffffff";
-          if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
+          if (!activeVideo.src) {
+            preloadVideo(activeVideo);
+            preloadVideo(nextVideo);
+          }
           activeVideo.play();
-          if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
+          if (userAudioPreference) {
+            await loadAudioOnce();
+            playAudio();
+          }
           audioToggleBtn.style.display = "block";
         }
 
@@ -302,6 +364,7 @@
           whiteOverlay.style.display = "none";
           arScene.style.display = "block";
           monitorVideo();
+          if (targetCurrentlyVisible) handleTargetFound();
         });
 
         restartBtn.addEventListener("click", () => {
@@ -310,6 +373,19 @@
           whiteOverlay.style.display = "none";
           arScene.style.display = "block";
           monitorVideo();
+          if (targetCurrentlyVisible) handleTargetFound();
+        });
+
+        audioToggleBtn.addEventListener("click", async () => {
+          await loadAudioOnce();
+          if (!audioSource) {
+            playAudio();
+            userAudioPreference = true;
+          } else {
+            stopAudio();
+            userAudioPreference = false;
+          }
+          localStorage.setItem("userAudioPref", userAudioPreference);
         });
 
         targetEl.addEventListener("targetFound", () => {
