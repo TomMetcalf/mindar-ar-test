@@ -7,71 +7,27 @@
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
     body { margin:0; font-family:sans-serif; }
-
     #whiteOverlay, #inactiveTabMessage {
       position: fixed; top:0; left:0; width:100%; height:100%;
       display:flex; align-items:center; justify-content:center;
       background:white; z-index:10;
     }
-
-    #preARMessage {
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      height:100%;
-      gap: 1em;
-    }
-
-    #startAR, #restartAR {
-      padding:1em 2em; font-size:18px; cursor:pointer;
-    }
+    #preARMessage { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:1em; }
+    #startAR, #restartAR { padding:1em 2em; font-size:18px; cursor:pointer; }
     #restartAR { display:none; }
-
-    #audioToggle {
-      position: fixed; bottom:5%; right:5%; z-index:20;
-      padding:0.5em 1em; font-size:18px; cursor:pointer; display:none;
-    }
-
+    #audioToggle { position: fixed; bottom:5%; right:5%; z-index:20; padding:0.5em 1em; font-size:18px; cursor:pointer; display:none; }
     #arScene { display:none; }
-
     #stillWatchingContainer {
       position: fixed; top:0; left:0; width:100%; height:100%;
       background:white; z-index:50; display:none;
       align-items:center; justify-content:center;
     }
-
-    #stillWatchingBtn {
-      padding:1em 2em; font-size:18px; cursor:pointer;
-    }
-
-    #inactiveTabMessage {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 0 1em;
-      box-sizing: border-box;
-    }
-
-    #inactiveTabInner {
-      max-width: 600px;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-
-    #inactiveTabInner p {
-      margin: 0.5em 0;
-      font-size: 1.2em;
-      word-wrap: break-word;
-    }
-
-    @media (max-width: 480px) { #inactiveTabInner p { font-size: 1em; } }
-    @media (max-width: 360px) { #inactiveTabInner p { font-size: 0.9em; } }
+    #stillWatchingBtn { padding:1em 2em; font-size:18px; cursor:pointer; }
+    #inactiveTabMessage { display:none; flex-direction: column; align-items:center; justify-content:center; text-align:center; padding:0 1em; box-sizing:border-box; }
+    #inactiveTabInner { max-width:600px; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    #inactiveTabInner p { margin:0.5em 0; font-size:1.2em; word-wrap:break-word; }
+    @media (max-width:480px){ #inactiveTabInner p { font-size:1em; } }
+    @media (max-width:360px){ #inactiveTabInner p { font-size:0.9em; } }
   </style>
 </head>
 <body>
@@ -120,67 +76,85 @@
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   const isAndroid = /Android/.test(navigator.userAgent);
 
-  // --- Android logic (keep exactly as before) ---
+  // -------------------
+  // Android logic (unchanged)
+  // -------------------
   if(isAndroid){
     const AR_FLAG_KEY = "arActive";
     const TAB_ID = Date.now() + '-' + Math.random();
     const HEARTBEAT_INTERVAL = 1000;
     const TAB_TIMEOUT = 1000;
-
-    function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
-    function cleanupTabs() {
-      const now = Date.now();
-      let anyAlive = false;
-      for (let key in localStorage) {
-        if (key.startsWith('tab_')) {
-          const last = parseInt(localStorage.getItem(key),10);
-          if(now - last < TAB_TIMEOUT) anyAlive = true;
+    function updateHeartbeat(){ localStorage.setItem('tab_'+TAB_ID, Date.now()); }
+    function cleanupTabs(){
+      const now = Date.now(); let anyAlive=false;
+      for(let key in localStorage){
+        if(key.startsWith('tab_')){
+          const last=parseInt(localStorage.getItem(key),10);
+          if(now-last<TAB_TIMEOUT) anyAlive=true;
           else localStorage.removeItem(key);
         }
       }
-      if(!anyAlive){
-        localStorage.removeItem(AR_FLAG_KEY);
-      }
+      if(!anyAlive){ localStorage.removeItem(AR_FLAG_KEY); }
     }
-
-    function showInactiveMessage(){
-      document.getElementById("whiteOverlay").style.display="none";
-      document.getElementById("inactiveTabMessage").style.display="flex";
-    }
-
+    function showInactiveMessage(){ document.getElementById("whiteOverlay").style.display="none"; document.getElementById("inactiveTabMessage").style.display="flex"; }
     updateHeartbeat();
     setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
     setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
     window.addEventListener('beforeunload', ()=>{ localStorage.removeItem('tab_'+TAB_ID); });
 
-    (()=>{
-      cleanupTabs();
-      const now = Date.now();
-      let anyAlive = false;
+    (()=>{ cleanupTabs(); const now=Date.now(); let anyAlive=false;
       for(let key in localStorage){
-        if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
-          const last = parseInt(localStorage.getItem(key),10);
-          if(now - last < TAB_TIMEOUT) anyAlive = true;
+        if(key.startsWith('tab_') && key!=='tab_'+TAB_ID){
+          const last=parseInt(localStorage.getItem(key),10);
+          if(now-last<TAB_TIMEOUT) anyAlive=true;
         }
       }
-      if(anyAlive){
-        showInactiveMessage();
-      } else {
-        localStorage.setItem(AR_FLAG_KEY,"true");
-        initAR();
-      }
+      if(anyAlive){ showInactiveMessage(); }
+      else{ localStorage.setItem(AR_FLAG_KEY,"true"); initAR(); }
     })();
   }
 
-  // --- iOS logic (restore original behavior exactly) ---
+  // -------------------
+  // iOS logic (mirror Android)
+  // -------------------
   if(isIOS){
-    // Simply run the original full code as before we separated Android.
-    initAR(); // original function contains full iOS behavior including tab checks
+    const AR_FLAG_KEY = "arActive";
+    const TAB_ID = Date.now() + '-' + Math.random();
+    const HEARTBEAT_INTERVAL = 1000;
+    const TAB_TIMEOUT = 1000;
+    function updateHeartbeat(){ localStorage.setItem('tab_'+TAB_ID, Date.now()); }
+    function cleanupTabs(){
+      const now = Date.now(); let anyAlive=false;
+      for(let key in localStorage){
+        if(key.startsWith('tab_')){
+          const last=parseInt(localStorage.getItem(key),10);
+          if(now-last<TAB_TIMEOUT) anyAlive=true;
+          else localStorage.removeItem(key);
+        }
+      }
+      if(!anyAlive){ localStorage.removeItem(AR_FLAG_KEY); }
+    }
+    function showInactiveMessage(){ document.getElementById("whiteOverlay").style.display="none"; document.getElementById("inactiveTabMessage").style.display="flex"; }
+    updateHeartbeat();
+    setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
+    setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
+    window.addEventListener('beforeunload', ()=>{ localStorage.removeItem('tab_'+TAB_ID); });
+
+    (()=>{ cleanupTabs(); const now=Date.now(); let anyAlive=false;
+      for(let key in localStorage){
+        if(key.startsWith('tab_') && key!=='tab_'+TAB_ID){
+          const last=parseInt(localStorage.getItem(key),10);
+          if(now-last<TAB_TIMEOUT) anyAlive=true;
+        }
+      }
+      if(anyAlive){ showInactiveMessage(); }
+      else{ localStorage.setItem(AR_FLAG_KEY,"true"); initAR(); }
+    })();
   }
 
-  // -----------------------
-  // AR logic (shared for both, Android untouched)
-  // -----------------------
+  // -------------------
+  // Shared AR logic for both
+  // -------------------
   async function initAR(){
     const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
@@ -228,10 +202,7 @@
 
     function stopAudio(){
       if(audioSource){
-        try{
-          audioSource.stop();
-          audioOffset=(audioCtx.currentTime-audioStartTime) % audioBuffer.duration;
-        }catch{}
+        try{ audioSource.stop(); audioOffset=(audioCtx.currentTime-audioStartTime) % audioBuffer.duration; }catch{}
         audioSource.disconnect(); audioSource=null;
       }
       audioToggleBtn.textContent="🔇";
@@ -292,7 +263,6 @@
     });
 
     async function handleTargetFound(){
-      if(!arButtonPressed) return;
       isActive=true;
       activePlane.setAttribute("visible",true);
       arScene.style.background="#ffffff";
@@ -303,22 +273,18 @@
     }
 
     startBtn.addEventListener("click",()=>{
-      startClicked = true;
-      arButtonPressed = true;
-      arStartedOnce = true;
+      startClicked=true;
+      arStartedOnce=true;
       whiteOverlay.style.display="none";
       arScene.style.display="block";
       monitorVideo();
-      if(targetCurrentlyVisible) handleTargetFound();
     });
 
     restartBtn.addEventListener("click",()=>{
-      startClicked = true;
-      arButtonPressed = true;
+      startClicked=true;
       whiteOverlay.style.display="none";
       arScene.style.display="block";
       monitorVideo();
-      if(targetCurrentlyVisible) handleTargetFound();
     });
 
     audioToggleBtn.addEventListener("click", async ()=>{
@@ -328,11 +294,7 @@
       localStorage.setItem("userAudioPref",userAudioPreference);
     });
 
-    targetEl.addEventListener("targetFound", ()=>{
-      targetCurrentlyVisible = true;
-      if(arButtonPressed) handleTargetFound();
-    });
-
+    targetEl.addEventListener("targetFound", ()=>{ targetCurrentlyVisible=true; handleTargetFound(); });
     targetEl.addEventListener("targetLost", ()=>{
       targetCurrentlyVisible=false;
       isActive=false;
@@ -358,11 +320,9 @@
         whiteOverlay.style.display="block";
         arScene.style.display="none";
         audioToggleBtn.style.display="none";
-
         if(arStartedOnce){
           startBtn.style.display="none";
           restartBtn.style.display="block";
-          arButtonPressed = false;
         } else {
           startBtn.style.display="block";
           restartBtn.style.display="none";
@@ -375,6 +335,7 @@
     preloadVideo(videoB);
     await loadAudioOnce();
   }
+
 })();
 </script>
 
