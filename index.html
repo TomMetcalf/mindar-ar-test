@@ -120,9 +120,7 @@
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   const isAndroid = /Android/.test(navigator.userAgent);
 
-  // -----------------------
-  // Android logic (unchanged)
-  // -----------------------
+  // --- Android logic (keep exactly as before) ---
   if(isAndroid){
     const AR_FLAG_KEY = "arActive";
     const TAB_ID = Date.now() + '-' + Math.random();
@@ -174,54 +172,14 @@
     })();
   }
 
-  // -----------------------
-  // iOS logic (Safari fixes)
-  // -----------------------
+  // --- iOS logic (restore original behavior exactly) ---
   if(isIOS){
-    const startBtn = document.getElementById("startAR");
-    const restartBtn = document.getElementById("restartAR");
-    const arScene = document.getElementById("arScene");
-    const videoA = document.getElementById("videoA");
-    const videoB = document.getElementById("videoB");
-    const audioToggleBtn = document.getElementById("audioToggle");
-
-    async function iosStartAR() {
-      document.getElementById("whiteOverlay").style.display = "none";
-      arScene.style.display = "block";
-
-      // Preload first two videos
-      videoA.src = "./assets/videos/target0_random_0.mp4";
-      videoB.src = "./assets/videos/target0_random_1.mp4";
-      await videoA.load();
-      await videoB.load();
-
-      // Play videos on user gesture
-      videoA.play().catch(e => console.log("VideoA play blocked:", e));
-      videoB.play().catch(e => console.log("VideoB play blocked:", e));
-
-      // Unlock audio context
-      if (!window.audioCtx) {
-        window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (!window.audioSource) {
-        const response = await fetch("./assets/audio/background.mp3");
-        const buffer = await window.audioCtx.decodeAudioData(await response.arrayBuffer());
-        window.audioSource = window.audioCtx.createBufferSource();
-        window.audioSource.buffer = buffer;
-        window.audioSource.loop = true;
-        window.audioSource.connect(window.audioCtx.destination);
-        window.audioSource.start();
-        audioToggleBtn.textContent = "🔊";
-        audioToggleBtn.style.display = "block";
-      }
-    }
-
-    startBtn.addEventListener("click", iosStartAR);
-    restartBtn.addEventListener("click", iosStartAR);
+    // Simply run the original full code as before we separated Android.
+    initAR(); // original function contains full iOS behavior including tab checks
   }
 
   // -----------------------
-  // Shared AR logic for Android (initAR function)
+  // AR logic (shared for both, Android untouched)
   // -----------------------
   async function initAR(){
     const whiteOverlay = document.getElementById("whiteOverlay");
