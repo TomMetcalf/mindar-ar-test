@@ -158,62 +158,42 @@
 
   <script>
     (async () => {
-      const AR_FLAG_KEY = "arActive";
       const TAB_ID = Date.now() + '-' + Math.random();
-      const HEARTBEAT_INTERVAL = 1000;
-      const TAB_TIMEOUT = 1000;
-
-      function updateHeartbeat() {
-        localStorage.setItem('tab_' + TAB_ID, Date.now());
-      }
-
-      function cleanupTabs() {
-        const now = Date.now();
-        let anyAlive = false;
-        for (let key in localStorage) {
-          if (key.startsWith('tab_')) {
-            const last = parseInt(localStorage.getItem(key), 10);
-            if (now - last < TAB_TIMEOUT) anyAlive = true;
-            else localStorage.removeItem(key);
-          }
-        }
-        if (!anyAlive) localStorage.removeItem(AR_FLAG_KEY);
-      }
+      const bc = new BroadcastChannel('ar_channel');
+      let arActiveInOtherTab = false;
 
       function showInactiveMessage() {
         document.getElementById("whiteOverlay").style.display = "none";
         document.getElementById("inactiveTabMessage").style.display = "flex";
       }
 
-      updateHeartbeat();
-      setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
-      setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
+      // Broadcast AR status to other tabs
+      function broadcastARStatus(active) {
+        bc.postMessage({ type: "ar-status", active, tabId: TAB_ID });
+      }
 
-      window.addEventListener('beforeunload', () => {
-        localStorage.removeItem('tab_' + TAB_ID);
-      });
-
-      // --- Immediate check for stale tabs ---
-      (() => {
-        cleanupTabs();
-        const now = Date.now();
-        let anyAlive = false;
-        for (let key in localStorage) {
-          if (key.startsWith('tab_') && key !== 'tab_' + TAB_ID) {
-            const last = parseInt(localStorage.getItem(key), 10);
-            if (now - last < TAB_TIMEOUT) anyAlive = true;
+      // Listen for AR status from other tabs
+      bc.onmessage = (event) => {
+        if (event.data?.type === "ar-status") {
+          if (event.data.active && event.data.tabId !== TAB_ID) {
+            arActiveInOtherTab = true;
+            showInactiveMessage();
           }
         }
-        if (anyAlive) {
-          showInactiveMessage();
-        } else {
-          localStorage.setItem(AR_FLAG_KEY, "true");
-          initAR();
-        }
-      })();
+      };
+
+      window.addEventListener("beforeunload", () => {
+        broadcastARStatus(false);
+      });
+
+      // Only initialize AR if no other tab is active
+      if (!arActiveInOtherTab) {
+        broadcastARStatus(true);
+        initAR();
+      }
 
       // -----------------------
-      // AR logic
+      // AR logic (all your Android logic stays the same)
       // -----------------------
       async function initAR() {
         const whiteOverlay = document.getElementById("whiteOverlay");
