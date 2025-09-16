@@ -15,9 +15,6 @@
       background:white; z-index:10;
     }
 
-    /* Hide whiteOverlay initially to prevent flicker */
-    #whiteOverlay { display: none; }
-
     /* Start/Restart buttons container */
     #preARMessage {
       display:flex;
@@ -162,23 +159,24 @@
 
       updateHeartbeat();
 
-      // --- Android fix: check immediately, show overlay only if allowed ---
-      cleanupTabs(); // remove stale tabs first
-      let anyAlive = false;
-      for(let key in localStorage){
-        if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
-          const last = parseInt(localStorage.getItem(key),10);
-          if(Date.now() - last < TAB_TIMEOUT) anyAlive = true;
+      // --- Android fix: wait for stale tabs to expire ---
+      setTimeout(()=>{
+        cleanupTabs(); // remove old stale tabs first
+        const now = Date.now();
+        let anyAlive = false;
+        for(let key in localStorage){
+          if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
+            const last = parseInt(localStorage.getItem(key),10);
+            if(now - last < TAB_TIMEOUT) anyAlive = true;
+          }
         }
-      }
-
-      if(anyAlive){
-        showInactiveMessage(); // immediately show message
-      } else {
+        if(anyAlive){
+          showInactiveMessage();
+          return;
+        }
         localStorage.setItem(AR_FLAG_KEY,"true");
-        document.getElementById("whiteOverlay").style.display = "flex"; // show overlay now
         initAR();
-      }
+      }, TAB_TIMEOUT + 100); // wait just over the timeout
 
       setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
       setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
