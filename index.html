@@ -158,42 +158,48 @@
 
   <script>
     (async () => {
+      // -----------------------
+      // SINGLE TAB ENFORCEMENT (BroadcastChannel)
+      // -----------------------
       const TAB_ID = Date.now() + '-' + Math.random();
       const bc = new BroadcastChannel('ar_channel');
-      let arActiveInOtherTab = false;
+      let otherTabActive = false;
 
       function showInactiveMessage() {
         document.getElementById("whiteOverlay").style.display = "none";
         document.getElementById("inactiveTabMessage").style.display = "flex";
       }
 
-      // Broadcast AR status to other tabs
+      function hideInactiveMessage() {
+        document.getElementById("inactiveTabMessage").style.display = "none";
+        document.getElementById("whiteOverlay").style.display = "flex";
+      }
+
       function broadcastARStatus(active) {
         bc.postMessage({ type: "ar-status", active, tabId: TAB_ID });
       }
 
-      // Listen for AR status from other tabs
       bc.onmessage = (event) => {
-        if (event.data?.type === "ar-status") {
-          if (event.data.active && event.data.tabId !== TAB_ID) {
-            arActiveInOtherTab = true;
+        if (event.data?.type === "ar-status" && event.data.tabId !== TAB_ID) {
+          otherTabActive = event.data.active;
+          if (otherTabActive) {
             showInactiveMessage();
+          } else {
+            hideInactiveMessage();
           }
         }
       };
 
+      // Broadcast that this tab is active immediately
+      broadcastARStatus(true);
+
+      // Broadcast inactive on unload
       window.addEventListener("beforeunload", () => {
         broadcastARStatus(false);
       });
 
-      // Only initialize AR if no other tab is active
-      if (!arActiveInOtherTab) {
-        broadcastARStatus(true);
-        initAR();
-      }
-
       // -----------------------
-      // AR logic (all your Android logic stays the same)
+      // AR logic (kept exactly the same)
       // -----------------------
       async function initAR() {
         const whiteOverlay = document.getElementById("whiteOverlay");
