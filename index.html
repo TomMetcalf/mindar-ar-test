@@ -7,23 +7,60 @@
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
     body { margin:0; font-family:sans-serif; }
-    /* ... your styles left unchanged ... */
+
     #whiteOverlay, #inactiveTabMessage {
       position: fixed; top:0; left:0; width:100%; height:100%;
       display:flex; align-items:center; justify-content:center;
       background:white; z-index:10;
     }
-    #preARMessage{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:1em;}
-    #startAR,#restartAR{padding:1em 2em;font-size:18px;cursor:pointer;}
-    #restartAR{display:none;}
-    #audioToggle{position:fixed;bottom:5%;right:5%;z-index:20;padding:0.5em 1em;font-size:18px;cursor:pointer;display:none;}
-    #arScene{display:none;}
-    #stillWatchingContainer{position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:50;display:none;align-items:center;justify-content:center;}
-    #stillWatchingBtn{padding:1em 2em;font-size:18px;cursor:pointer;}
-    #inactiveTabMessage{display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 1em;box-sizing:border-box;}
-    #inactiveTabInner{max-width:600px;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-    #inactiveTabInner p{margin:0.5em 0;font-size:1.2em;word-wrap:break-word;}
-    @media (max-width:480px){#inactiveTabInner p{font-size:1em}} @media (max-width:360px){#inactiveTabInner p{font-size:0.9em}}
+
+    #preARMessage {
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      height:100%; gap: 1em;
+    }
+
+    #startAR, #restartAR {
+      padding:1em 2em; font-size:18px; cursor:pointer;
+    }
+    #restartAR { display:none; }
+
+    #audioToggle {
+      position: fixed; bottom:5%; right:5%; z-index:20;
+      padding:0.5em 1em; font-size:18px; cursor:pointer;
+      display:none;
+    }
+
+    #arScene { display:none; }
+
+    #stillWatchingContainer {
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background:white; z-index:50; display:none;
+      align-items:center; justify-content:center;
+    }
+
+    #stillWatchingBtn {
+      padding:1em 2em; font-size:18px; cursor:pointer;
+    }
+
+    #inactiveTabMessage {
+      display:none;
+      flex-direction:column; align-items:center; justify-content:center;
+      text-align:center; padding:0 1em; box-sizing:border-box;
+    }
+
+    #inactiveTabInner {
+      max-width:600px; width:100%;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+    }
+
+    #inactiveTabInner p {
+      margin:0.5em 0; font-size:1.2em; word-wrap:break-word;
+    }
+
+    @media (max-width:480px){ #inactiveTabInner p{ font-size:1em; } }
+    @media (max-width:360px){ #inactiveTabInner p{ font-size:0.9em; } }
   </style>
 </head>
 <body>
@@ -72,37 +109,23 @@
 
 <script>
 (async ()=>{
-  // ---------- Ownership config ----------
-  const AR_KEY = "arOwner"; // localStorage key
-  const TAB_ID = Date.now() + "-" + Math.random().toString(36).slice(2);
-  const HEARTBEAT_INTERVAL = 1000; // ms while visible
-  const OWNER_EXPIRY = 5000; // ms: consider an owner stale after this (adjust as needed)
-
-  let hbTimer = null;
-  let bc = null;
-
-  // Try BroadcastChannel if supported
-  if ('BroadcastChannel' in window) {
-    try { bc = new BroadcastChannel('ar_channel'); }
-    catch(e){ bc = null; }
-  }
+  const OWNER_KEY = "arOwner";
+  const TAB_ID = Date.now() + "-" + Math.random();
+  const OWNER_TTL = 5000; // ms
 
   function readOwner(){
-    try {
-      const raw = localStorage.getItem(AR_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch(e){ return null; }
+    const raw = localStorage.getItem(OWNER_KEY);
+    if(!raw) return null;
+    try{ return JSON.parse(raw); }catch{return null;}
   }
-  function writeOwner(obj){
-    try { localStorage.setItem(AR_KEY, JSON.stringify(obj)); } catch(e){}
-  }
-  function clearOwner(){
-    try { localStorage.removeItem(AR_KEY); } catch(e){}
-  }
+  function writeOwner(id){ localStorage.setItem(OWNER_KEY, JSON.stringify({id, ts:Date.now()})); }
+  function clearOwner(){ localStorage.removeItem(OWNER_KEY); }
+  function isOwnerFresh(owner){ return Date.now()-owner.ts < OWNER_TTL; }
 
-  function isOwnerFresh(owner){
-    if(!owner || !owner.lastSeen) return false;
-    return (Date.now() - owner.lastSeen) < OWNER_EXPIRY;
+  function claimOwnership(){ writeOwner(TAB_ID); }
+  function releaseOwnership(){
+    const owner = readOwner();
+    if(owner && owner.id === TAB_ID){ clearOwner(); }
   }
 
   function showInactiveMessage(){
@@ -110,144 +133,32 @@
     document.getElementById("inactiveTabMessage").style.display="flex";
   }
 
-  function startHeartbeatIfNeeded(){
-    // heartbeat updates lastSeen while this tab is visible and is the owner
-    if (hbTimer) return;
-    if (document.visibilityState !== 'visible') return;
-    hbTimer = setInterval(()=>{
-      const cur = readOwner();
-      if (cur && cur.id === TAB_ID){
-        writeOwner({ id: TAB_ID, lastSeen: Date.now() });
-      } else {
-        // someone else reclaimed, stop heartbeat
-        stopHeartbeat();
-      }
-    }, HEARTBEAT_INTERVAL);
-  }
-  function stopHeartbeat(){
-    if(hbTimer){ clearInterval(hbTimer); hbTimer = null; }
+  // Ownership logic at startup
+  let owner = readOwner();
+  if (owner && !isOwnerFresh(owner)) {
+    clearOwner(); // stale → clear it
+    owner = null;
   }
 
-  function broadcast(msg){
-    if(bc) try{ bc.postMessage(msg); } catch(e){}
-    // also write to localStorage to wake other tabs on older browsers
-    try { localStorage.setItem("ar_bcast", JSON.stringify({...msg, t: Date.now()})); } catch(e){}
+  if (owner && owner.id !== TAB_ID) {
+    showInactiveMessage();
+    return;
   }
 
-  function claimOwnership(){
-    writeOwner({ id: TAB_ID, lastSeen: Date.now() });
-    broadcast({ type: "claim", id: TAB_ID });
-    startHeartbeatIfNeeded();
-  }
+  claimOwnership();
+  initAR();
 
-  function releaseOwnership(){
-    const cur = readOwner();
-    if (cur && cur.id === TAB_ID){
-      clearOwner();
-      broadcast({ type: "release", id: TAB_ID });
-    }
-    stopHeartbeat();
-    // keep userAudioPref cleanup as before:
-    try { localStorage.removeItem("userAudioPref"); } catch(e){}
-  }
+  // Keep refreshing our ownership claim
+  setInterval(()=>{ writeOwner(TAB_ID); }, OWNER_TTL/2);
 
-  // storage message handler (fallback + "ar_bcast" ping)
-  window.addEventListener("storage", (e)=>{
-    if (!e.key) return;
-    if (e.key === AR_KEY){
-      // owner changed
-      const owner = readOwner();
-      if (owner && owner.id !== TAB_ID && isOwnerFresh(owner)){
-        showInactiveMessage();
-      }
-      // if owner is null (released), do nothing — user can start
-    } else if (e.key === "ar_bcast"){
-      // cross-browser event ping — parse and react if needed
-      try {
-        const msg = JSON.parse(e.newValue);
-        if (msg && msg.type === "claim" && msg.id !== TAB_ID){
-          const owner = readOwner();
-          if (owner && owner.id === msg.id && isOwnerFresh(owner)){
-            showInactiveMessage();
-          }
-        } else if (msg && msg.type === "release"){
-          // released - let UI remain (start button shown)
-        }
-      } catch(e){}
-    }
-  });
-
-  // BroadcastChannel listener
-  if (bc){
-    bc.onmessage = (ev)=>{
-      const msg = ev.data;
-      if (!msg) return;
-      if (msg.type === "claim" && msg.id !== TAB_ID){
-        const owner = readOwner();
-        if (owner && owner.id === msg.id && isOwnerFresh(owner)){
-          showInactiveMessage();
-        }
-      } else if (msg.type === "release"){
-        // released - allow start
-      }
-    };
-  }
-
-  // Visibility changes: start/stop heartbeat appropriately
-  document.addEventListener('visibilitychange', ()=>{
-    if (document.visibilityState === 'visible'){
-      // if we own it, resume heartbeat to keep lastSeen fresh
-      const cur = readOwner();
-      if (cur && cur.id === TAB_ID) startHeartbeatIfNeeded();
-    } else {
-      // stop updating while hidden (timers on iOS may freeze); expiry will be used by newcomers
-      stopHeartbeat();
-    }
-
-    // also handle UI when returning to page
-    if (!document.hidden){
-      // show overlay / restart button logic from your original flow
-      const whiteOverlay = document.getElementById("whiteOverlay");
-      const arScene = document.getElementById("arScene");
-      const startBtn = document.getElementById("startAR");
-      const restartBtn = document.getElementById("restartAR");
-      whiteOverlay.style.display="block";
-      arScene.style.display="none";
-      if (window.__arStartedOnce) {
-        startBtn.style.display="none";
-        restartBtn.style.display="block";
-        window.__arButtonPressed = false;
-      } else {
-        startBtn.style.display="block";
-        restartBtn.style.display="none";
-      }
-    }
-  });
-
-  // pagehide / beforeunload — best-effort release
-  window.addEventListener("pagehide", releaseOwnership);
+  // Cleanup when tab is closed
   window.addEventListener("beforeunload", releaseOwnership);
+  window.addEventListener("pagehide", releaseOwnership);
 
-  // Initial claim check (run shortly after script load)
-  setTimeout(()=>{
-    const owner = readOwner();
-    if (owner && owner.id !== TAB_ID && isOwnerFresh(owner)){
-      // another tab currently owns AR -> show inactive message
-      showInactiveMessage();
-      return;
-    }
-    // Either no owner, or owner is stale -> claim and init AR
-    claimOwnership();
-    initAR(); // proceed to start the rest of your AR initialization
-  }, 50);
-
-  // ------------- Your AR logic (kept essentially the same) -------------
-  // I placed it in a function so we can call initAR() after claiming ownership.
+  // -----------------------
+  // AR logic
+  // -----------------------
   async function initAR(){
-    // small global flags used by visibility handler
-    window.__arStartedOnce = false;
-    window.__arButtonPressed = false;
-
     const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
     const restartBtn = document.getElementById("restartAR");
@@ -263,11 +174,11 @@
     const TOTAL_VIDEOS = 60;
 
     let lastIndex=-1, activeVideo=videoA, nextVideo=videoB, activePlane=videoPlaneA, nextPlane=videoPlaneB;
-    let startClicked=false, arStartedOnce=false, arButtonPressed=false, isActive=false, loopCount=0, targetCurrentlyVisible=false;
+    let arStartedOnce=false, arButtonPressed=false, isActive=false, loopCount=0, targetCurrentlyVisible=false;
     const LOOP_LIMIT=3;
 
     let userAudioPreference = localStorage.getItem("userAudioPref");
-    userAudioPreference = userAudioPreference===null?true:userAudioPreference!=="false";
+    userAudioPreference = (userAudioPreference === null) ? true : (userAudioPreference === "true");
 
     let audioCtx, audioBuffer, audioSource, audioLoaded=false, audioStartTime=0, audioOffset=0;
 
@@ -350,7 +261,11 @@
       isActive=true;
       activeVideo.play();
       activePlane.setAttribute("visible",true);
-      if(userAudioPreference){ await loadAudioOnce(); playAudio(); }
+      if(userAudioPreference){
+        await loadAudioOnce();
+        if(audioCtx.state==="suspended"){ await audioCtx.resume(); }
+        playAudio();
+      }
       audioToggleBtn.style.display="block";
     });
 
@@ -361,16 +276,17 @@
       arScene.style.background="#ffffff";
       if(!activeVideo.src){ preloadVideo(activeVideo); preloadVideo(nextVideo); }
       activeVideo.play();
-      if(userAudioPreference){ await loadAudioOnce(); playAudio(); }
+      if(userAudioPreference){
+        await loadAudioOnce();
+        if(audioCtx.state==="suspended"){ await audioCtx.resume(); }
+        playAudio();
+      }
       audioToggleBtn.style.display="block";
     }
 
     startBtn.addEventListener("click",()=>{
-      startClicked = true;
       arButtonPressed = true;
       arStartedOnce = true;
-      window.__arStartedOnce = true;
-      window.__arButtonPressed = true;
       whiteOverlay.style.display="none";
       arScene.style.display="block";
       monitorVideo();
@@ -378,7 +294,6 @@
     });
 
     restartBtn.addEventListener("click",()=>{
-      startClicked = true;
       arButtonPressed = true;
       whiteOverlay.style.display="none";
       arScene.style.display="block";
@@ -388,9 +303,15 @@
 
     audioToggleBtn.addEventListener("click", async ()=>{
       await loadAudioOnce();
-      if(!audioSource){ playAudio(); userAudioPreference=true; }
-      else{ stopAudio(); userAudioPreference=false; }
-      localStorage.setItem("userAudioPref",userAudioPreference);
+      if(audioCtx.state==="suspended"){ await audioCtx.resume(); }
+      if(!audioSource){
+        playAudio();
+        userAudioPreference=true;
+      } else {
+        stopAudio();
+        userAudioPreference=false;
+      }
+      localStorage.setItem("userAudioPref", userAudioPreference);
     });
 
     targetEl.addEventListener("targetFound", ()=>{
@@ -423,7 +344,6 @@
         whiteOverlay.style.display="block";
         arScene.style.display="none";
         audioToggleBtn.style.display="none";
-
         if(arStartedOnce){
           startBtn.style.display="none";
           restartBtn.style.display="block";
