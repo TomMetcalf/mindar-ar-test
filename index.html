@@ -76,51 +76,54 @@
 </head>
 <body>
 
-  <div id="whiteOverlay">
-    <div id="preARMessage">
-      <button id="startAR">Start AR</button>
-      <button id="restartAR">Restart AR</button>
-    </div>
+<div id="whiteOverlay">
+  <div id="preARMessage">
+    <button id="startAR">Start AR</button>
+    <button id="restartAR">Restart AR</button>
   </div>
+</div>
 
-  <div id="inactiveTabMessage">
-    <div id="inactiveTabInner">
-      <p>AR is already active in another tab.</p>
-      <p>Please close this tab and switch back to the active tab to continue using AR.</p>
-    </div>
+<div id="inactiveTabMessage">
+  <div id="inactiveTabInner">
+    <p>AR is already active in another tab.</p>
+    <p>Please close this tab and switch back to the active tab to continue using AR.</p>
   </div>
+</div>
 
-  <div id="stillWatchingContainer">
-    <button id="stillWatchingBtn">Still Watching?</button>
-  </div>
+<div id="stillWatchingContainer">
+  <button id="stillWatchingBtn">Still Watching?</button>
+</div>
 
-  <button id="audioToggle">🔇</button>
-  <video id="videoA" style="display:none" muted playsinline></video>
-  <video id="videoB" style="display:none" muted playsinline></video>
+<button id="audioToggle">🔇</button>
+<video id="videoA" style="display:none" muted playsinline></video>
+<video id="videoB" style="display:none" muted playsinline></video>
 
-  <a-scene
-    id="arScene"
-    mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth:true; smoothCount:5; smoothTolerance:0.1"
-    color-space="sRGB"
-    renderer="colorManagement:true, physicallyCorrectLights"
-    vr-mode-ui="enabled:false"
-    device-orientation-permission-ui="enabled:false"
-    framerate="12"
-    look-at="[camera]"
-  >
-    <a-camera id="camera" position="0 0 0" look-controls="enabled:false"></a-camera>
-    <a-entity id="target0" mindar-image-target="targetIndex:0">
-      <a-plane id="videoPlaneA" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader:flat; src:#videoA"></a-plane>
-      <a-plane id="videoPlaneB" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader:flat; src:#videoB"></a-plane>
-    </a-entity>
-  </a-scene>
+<a-scene
+  id="arScene"
+  mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth:true; smoothCount:5; smoothTolerance:0.1"
+  color-space="sRGB"
+  renderer="colorManagement:true, physicallyCorrectLights"
+  vr-mode-ui="enabled:false"
+  device-orientation-permission-ui="enabled:false"
+  framerate="12"
+  look-at="[camera]"
+>
+  <a-camera id="camera" position="0 0 0" look-controls="enabled:false"></a-camera>
+  <a-entity id="target0" mindar-image-target="targetIndex:0">
+    <a-plane id="videoPlaneA" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader:flat; src:#videoA"></a-plane>
+    <a-plane id="videoPlaneB" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader:flat; src:#videoB"></a-plane>
+  </a-entity>
+</a-scene>
 
 <script>
 (async ()=>{
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const isAndroid = /Android/.test(navigator.userAgent);
+
   const AR_FLAG_KEY = "arActive";
   const TAB_ID = Date.now() + '-' + Math.random();
   const HEARTBEAT_INTERVAL = 1000;
-  const TAB_TIMEOUT = 1000;
+  const TAB_TIMEOUT = isIOS ? 2000 : 1000;
 
   function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
   function cleanupTabs() {
@@ -133,9 +136,7 @@
         else localStorage.removeItem(key);
       }
     }
-    if(!anyAlive){
-      localStorage.removeItem(AR_FLAG_KEY);
-    }
+    if(!anyAlive) localStorage.removeItem(AR_FLAG_KEY);
   }
 
   function showInactiveMessage(){
@@ -148,27 +149,34 @@
   setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
   window.addEventListener('beforeunload', ()=>{ localStorage.removeItem('tab_'+TAB_ID); });
 
-  // --- Immediate check for stale tabs ---
-  (()=>{
-    cleanupTabs();
-    const now = Date.now();
-    let anyAlive = false;
-    for(let key in localStorage){
-      if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
-        const last = parseInt(localStorage.getItem(key),10);
-        if(now - last < TAB_TIMEOUT) anyAlive = true;
-      }
-    }
-    if(anyAlive){
+  // --- Platform-specific tab handling ---
+  if(isAndroid){
+    // Existing Android logic
+    if(Object.keys(localStorage).some(k=>k.startsWith('tab_') && k!=='tab_'+TAB_ID && Date.now()-parseInt(localStorage[k],10)<TAB_TIMEOUT)){
       showInactiveMessage();
-    } else {
-      localStorage.setItem(AR_FLAG_KEY,"true");
-      initAR();
+      return;
     }
-  })();
+    localStorage.setItem(AR_FLAG_KEY,"true");
+    initAR();
+  } else if(isIOS){
+    // iOS-specific logic
+    const checkIOSOtherTabs = () => {
+      cleanupTabs();
+      for(let key in localStorage){
+        if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
+          const last = parseInt(localStorage.getItem(key),10);
+          if(Date.now() - last < TAB_TIMEOUT) return true;
+        }
+      }
+      return false;
+    };
+    if(checkIOSOtherTabs()){ showInactiveMessage(); return; }
+    localStorage.setItem(AR_FLAG_KEY,"true");
+    initAR();
+  }
 
   // -----------------------
-  // AR logic
+  // AR logic (shared)
   // -----------------------
   async function initAR(){
     const whiteOverlay = document.getElementById("whiteOverlay");
@@ -186,7 +194,7 @@
     const TOTAL_VIDEOS = 60;
 
     let lastIndex=-1, activeVideo=videoA, nextVideo=videoB, activePlane=videoPlaneA, nextPlane=videoPlaneB;
-    let startClicked=false, arStartedOnce=false, arButtonPressed=false, isActive=false, loopCount=0, targetCurrentlyVisible=false;
+    let arButtonPressed=false, isActive=false, loopCount=0, targetCurrentlyVisible=false;
     const LOOP_LIMIT=3;
 
     let userAudioPreference = localStorage.getItem("userAudioPref");
@@ -217,10 +225,7 @@
 
     function stopAudio(){
       if(audioSource){
-        try{
-          audioSource.stop();
-          audioOffset=(audioCtx.currentTime-audioStartTime) % audioBuffer.duration;
-        }catch{}
+        try{ audioSource.stop(); audioOffset=(audioCtx.currentTime-audioStartTime)%audioBuffer.duration; }catch{}
         audioSource.disconnect(); audioSource=null;
       }
       audioToggleBtn.textContent="🔇";
@@ -274,7 +279,7 @@
       stillWatchingContainer.style.display="none";
       loopCount=0;
       isActive=true;
-      activeVideo.play();
+      await activeVideo.play();
       activePlane.setAttribute("visible",true);
       if(userAudioPreference){ await loadAudioOnce(); playAudio(); }
       audioToggleBtn.style.display="block";
@@ -286,29 +291,27 @@
       activePlane.setAttribute("visible",true);
       arScene.style.background="#ffffff";
       if(!activeVideo.src){ preloadVideo(activeVideo); preloadVideo(nextVideo); }
-      activeVideo.play();
+      await activeVideo.play();
       if(userAudioPreference){ await loadAudioOnce(); playAudio(); }
       audioToggleBtn.style.display="block";
     }
 
-    startBtn.addEventListener("click",()=>{
-      startClicked = true;
+    async function startOrRestartAR(isRestart=false){
       arButtonPressed = true;
-      arStartedOnce = true;
       whiteOverlay.style.display="none";
       arScene.style.display="block";
       monitorVideo();
-      if(targetCurrentlyVisible) handleTargetFound();
-    });
+      if(!activeVideo.src){ preloadVideo(activeVideo); preloadVideo(nextVideo); }
+      await activeVideo.play();
+      if(userAudioPreference){ await loadAudioOnce(); playAudio(); }
+      audioToggleBtn.style.display="block";
+      if(targetCurrentlyVisible) await handleTargetFound();
+      startBtn.style.display=isRestart?"none":"block";
+      restartBtn.style.display=isRestart?"block":"none";
+    }
 
-    restartBtn.addEventListener("click",()=>{
-      startClicked = true;
-      arButtonPressed = true;
-      whiteOverlay.style.display="none";
-      arScene.style.display="block";
-      monitorVideo();
-      if(targetCurrentlyVisible) handleTargetFound();
-    });
+    startBtn.addEventListener("click", ()=>startOrRestartAR(false));
+    restartBtn.addEventListener("click", ()=>startOrRestartAR(true));
 
     audioToggleBtn.addEventListener("click", async ()=>{
       await loadAudioOnce();
@@ -317,11 +320,7 @@
       localStorage.setItem("userAudioPref",userAudioPreference);
     });
 
-    targetEl.addEventListener("targetFound", ()=>{
-      targetCurrentlyVisible = true;
-      if(arButtonPressed) handleTargetFound();
-    });
-
+    targetEl.addEventListener("targetFound", ()=>{ targetCurrentlyVisible = true; if(arButtonPressed) handleTargetFound(); });
     targetEl.addEventListener("targetLost", ()=>{
       targetCurrentlyVisible=false;
       isActive=false;
@@ -343,19 +342,15 @@
         audioToggleBtn.style.display="none";
         activePlane.setAttribute("visible",false);
         nextPlane.setAttribute("visible",false);
-      } else {
+      } else if(isIOS){
+        // Only iOS: re-check tabs
+        if(Object.keys(localStorage).some(k=>k.startsWith('tab_') && k!=='tab_'+TAB_ID && Date.now()-parseInt(localStorage[k],10)<TAB_TIMEOUT)){
+          showInactiveMessage();
+          return;
+        }
         whiteOverlay.style.display="block";
         arScene.style.display="none";
         audioToggleBtn.style.display="none";
-
-        if(arStartedOnce){
-          startBtn.style.display="none";
-          restartBtn.style.display="block";
-          arButtonPressed = false;
-        } else {
-          startBtn.style.display="block";
-          restartBtn.style.display="none";
-        }
       }
     });
 
@@ -364,6 +359,7 @@
     preloadVideo(videoB);
     await loadAudioOnce();
   }
+
 })();
 </script>
 
