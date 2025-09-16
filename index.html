@@ -8,14 +8,12 @@
   <style>
     body { margin:0; font-family:sans-serif; }
 
-    /* Full screen overlays */
     #whiteOverlay, #inactiveTabMessage {
       position: fixed; top:0; left:0; width:100%; height:100%;
       display:flex; align-items:center; justify-content:center;
       background:white; z-index:10;
     }
 
-    /* Start/Restart buttons container */
     #preARMessage {
       display:flex;
       flex-direction:column;
@@ -25,7 +23,9 @@
       gap: 1em;
     }
 
-    #startAR, #restartAR { padding:1em 2em; font-size:18px; cursor:pointer; }
+    #startAR, #restartAR {
+      padding:1em 2em; font-size:18px; cursor:pointer;
+    }
     #restartAR { display:none; }
 
     #audioToggle {
@@ -41,9 +41,10 @@
       align-items:center; justify-content:center;
     }
 
-    #stillWatchingBtn { padding:1em 2em; font-size:18px; cursor:pointer; }
+    #stillWatchingBtn {
+      padding:1em 2em; font-size:18px; cursor:pointer;
+    }
 
-    /* Inactive tab message formatting */
     #inactiveTabMessage {
       display: none;
       flex-direction: column;
@@ -63,7 +64,11 @@
       justify-content: center;
     }
 
-    #inactiveTabInner p { margin: 0.5em 0; font-size: 1.2em; word-wrap: break-word; }
+    #inactiveTabInner p {
+      margin: 0.5em 0;
+      font-size: 1.2em;
+      word-wrap: break-word;
+    }
 
     @media (max-width: 480px) { #inactiveTabInner p { font-size: 1em; } }
     @media (max-width: 360px) { #inactiveTabInner p { font-size: 0.9em; } }
@@ -71,7 +76,6 @@
 </head>
 <body>
 
-  <!-- Pre-AR Overlay -->
   <div id="whiteOverlay">
     <div id="preARMessage">
       <button id="startAR">Start AR</button>
@@ -79,7 +83,6 @@
     </div>
   </div>
 
-  <!-- Message for second tab -->
   <div id="inactiveTabMessage">
     <div id="inactiveTabInner">
       <p>AR is already active in another tab.</p>
@@ -87,7 +90,6 @@
     </div>
   </div>
 
-  <!-- Still Watching -->
   <div id="stillWatchingContainer">
     <button id="stillWatchingBtn">Still Watching?</button>
   </div>
@@ -118,60 +120,58 @@
   const AR_FLAG_KEY = "arActive";
   const TAB_ID = Date.now() + '-' + Math.random();
   const HEARTBEAT_INTERVAL = 1000;
-  const TAB_TIMEOUT = 1000; // faster timeout for Android
+  const TAB_TIMEOUT = 1000;
 
-  const whiteOverlay = document.getElementById("whiteOverlay");
-  const inactiveMessage = document.getElementById("inactiveTabMessage");
-
-  function updateHeartbeat() { localStorage.setItem('tab_'+TAB_ID, Date.now()); }
-
+  function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
   function cleanupTabs() {
     const now = Date.now();
-    for(let key in localStorage){
-      if(key.startsWith('tab_')){
+    let anyAlive = false;
+    for (let key in localStorage) {
+      if (key.startsWith('tab_')) {
         const last = parseInt(localStorage.getItem(key),10);
-        if(now - last > TAB_TIMEOUT) localStorage.removeItem(key);
+        if(now - last < TAB_TIMEOUT) anyAlive = true;
+        else localStorage.removeItem(key);
       }
     }
-    // remove AR flag if no tabs remain
-    let anyAlive = Object.keys(localStorage).some(k=>k.startsWith('tab_'));
-    if(!anyAlive) localStorage.removeItem(AR_FLAG_KEY);
+    if(!anyAlive){
+      localStorage.removeItem(AR_FLAG_KEY);
+    }
   }
 
   function showInactiveMessage(){
-    whiteOverlay.style.display = "none";
-    inactiveMessage.style.display = "flex";
+    document.getElementById("whiteOverlay").style.display="none";
+    document.getElementById("inactiveTabMessage").style.display="flex";
   }
 
-  // --- Run cleanup immediately ---
-  cleanupTabs();
-
-  // --- Check if other tabs exist ---
-  const now = Date.now();
-  let anyAlive = false;
-  for(let key in localStorage){
-    if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
-      const last = parseInt(localStorage.getItem(key),10);
-      if(now - last < TAB_TIMEOUT) anyAlive = true;
-    }
-  }
-
-  if(anyAlive){
-    showInactiveMessage();
-    return;
-  }
-
-  // Mark this tab as active
-  localStorage.setItem(AR_FLAG_KEY,"true");
   updateHeartbeat();
   setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
   setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
   window.addEventListener('beforeunload', ()=>{ localStorage.removeItem('tab_'+TAB_ID); });
 
+  // --- Immediate check for stale tabs ---
+  (()=>{
+    cleanupTabs();
+    const now = Date.now();
+    let anyAlive = false;
+    for(let key in localStorage){
+      if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
+        const last = parseInt(localStorage.getItem(key),10);
+        if(now - last < TAB_TIMEOUT) anyAlive = true;
+      }
+    }
+    if(anyAlive){
+      showInactiveMessage();
+    } else {
+      localStorage.setItem(AR_FLAG_KEY,"true");
+      initAR();
+    }
+  })();
+
   // -----------------------
-  // AR logic (same as your original code)
+  // AR logic
   // -----------------------
   async function initAR(){
+    const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
     const restartBtn = document.getElementById("restartAR");
     const audioToggleBtn = document.getElementById("audioToggle");
@@ -217,14 +217,18 @@
 
     function stopAudio(){
       if(audioSource){
-        try{ audioSource.stop(); audioOffset=(audioCtx.currentTime-audioStartTime) % audioBuffer.duration; }catch{}
+        try{
+          audioSource.stop();
+          audioOffset=(audioCtx.currentTime-audioStartTime) % audioBuffer.duration;
+        }catch{}
         audioSource.disconnect(); audioSource=null;
       }
       audioToggleBtn.textContent="🔇";
     }
 
     function pickRandomIndex(){
-      let idx; do{ idx=Math.floor(Math.random()*TOTAL_VIDEOS); }while(idx===lastIndex);
+      let idx;
+      do{ idx=Math.floor(Math.random()*TOTAL_VIDEOS); }while(idx===lastIndex);
       lastIndex=idx;
       return idx;
     }
@@ -237,21 +241,23 @@
     }
 
     function swapVideo(){
-      const flip = Math.random()<0.5?-1:1;
+      const flip=Math.random()<0.5?-1:1;
       nextPlane.setAttribute("scale",`${flip} 1 1`);
       nextPlane.setAttribute("visible",true);
       activePlane.setAttribute("visible",false);
       nextVideo.currentTime=0;
       nextVideo.play();
-      [activeVideo,nextVideo] = [nextVideo,activeVideo];
-      [activePlane,nextPlane] = [nextPlane,activePlane];
+      [activeVideo,nextVideo]=[nextVideo,activeVideo];
+      [activePlane,nextPlane]=[nextPlane,activePlane];
       preloadVideo(nextVideo);
       loopCount++;
       if(loopCount>=LOOP_LIMIT) showStillWatching();
     }
 
     function monitorVideo(){
-      if(isActive && activeVideo.duration>0 && activeVideo.currentTime>=activeVideo.duration-0.05) swapVideo();
+      if(isActive && activeVideo.duration>0 && activeVideo.currentTime>=activeVideo.duration-0.05){
+        swapVideo();
+      }
       requestAnimationFrame(monitorVideo);
     }
 
@@ -286,15 +292,22 @@
     }
 
     startBtn.addEventListener("click",()=>{
-      startClicked = true; arButtonPressed = true; arStartedOnce = true;
-      whiteOverlay.style.display="none"; arScene.style.display="block";
-      monitorVideo(); if(targetCurrentlyVisible) handleTargetFound();
+      startClicked = true;
+      arButtonPressed = true;
+      arStartedOnce = true;
+      whiteOverlay.style.display="none";
+      arScene.style.display="block";
+      monitorVideo();
+      if(targetCurrentlyVisible) handleTargetFound();
     });
 
     restartBtn.addEventListener("click",()=>{
-      startClicked = true; arButtonPressed = true;
-      whiteOverlay.style.display="none"; arScene.style.display="block";
-      monitorVideo(); if(targetCurrentlyVisible) handleTargetFound();
+      startClicked = true;
+      arButtonPressed = true;
+      whiteOverlay.style.display="none";
+      arScene.style.display="block";
+      monitorVideo();
+      if(targetCurrentlyVisible) handleTargetFound();
     });
 
     audioToggleBtn.addEventListener("click", async ()=>{
@@ -310,34 +323,47 @@
     });
 
     targetEl.addEventListener("targetLost", ()=>{
-      targetCurrentlyVisible=false; isActive=false;
+      targetCurrentlyVisible=false;
+      isActive=false;
       activePlane.setAttribute("visible",false);
       nextPlane.setAttribute("visible",false);
       arScene.style.background=null;
-      activeVideo.pause(); nextVideo.pause();
+      activeVideo.pause();
+      nextVideo.pause();
       stopAudio();
       audioToggleBtn.style.display="none";
     });
 
     document.addEventListener("visibilitychange", ()=>{
       if(document.hidden){
-        isActive=false; activeVideo.pause(); nextVideo.pause();
-        stopAudio(); audioToggleBtn.style.display="none";
+        isActive=false;
+        activeVideo.pause();
+        nextVideo.pause();
+        stopAudio();
+        audioToggleBtn.style.display="none";
         activePlane.setAttribute("visible",false);
         nextPlane.setAttribute("visible",false);
       } else {
-        whiteOverlay.style.display="block"; arScene.style.display="none";
+        whiteOverlay.style.display="block";
+        arScene.style.display="none";
         audioToggleBtn.style.display="none";
-        if(arStartedOnce){ startBtn.style.display="none"; restartBtn.style.display="block"; arButtonPressed=false; }
-        else { startBtn.style.display="block"; restartBtn.style.display="none"; }
+
+        if(arStartedOnce){
+          startBtn.style.display="none";
+          restartBtn.style.display="block";
+          arButtonPressed = false;
+        } else {
+          startBtn.style.display="block";
+          restartBtn.style.display="none";
+        }
       }
     });
 
     [videoA,videoB].forEach(v=>{ v.currentTime=0; v.play(); v.pause(); });
-    preloadVideo(videoA); preloadVideo(videoB);
+    preloadVideo(videoA);
+    preloadVideo(videoB);
     await loadAudioOnce();
   }
-
 })();
 </script>
 
