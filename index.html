@@ -34,7 +34,7 @@
       position: fixed; bottom:5%; right:5%; z-index:20; padding:0.5em 1em; font-size:18px; cursor:pointer; display:none;
     }
 
-    #arSceneContainer { width:100%; height:100%; position:fixed; top:0; left:0; z-index:5; display:none; }
+    #arScene { display:none; }
 
     #stillWatchingContainer {
       position: fixed; top:0; left:0; width:100%; height:100%;
@@ -104,659 +104,274 @@
   </div>
 
   <button id="audioToggle">🔇</button>
-  <!-- keep hidden video elements in DOM so A-Frame materials can reference them -->
   <video id="videoA" style="display:none" muted playsinline></video>
   <video id="videoB" style="display:none" muted playsinline></video>
 
-  <!-- container where we will create/destroy the <a-scene> -->
-  <div id="arSceneContainer"></div>
+  <a-scene
+    id="arScene"
+    mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth:true; smoothCount:5; smoothTolerance:0.1"
+    color-space="sRGB"
+    renderer="colorManagement:true, physicallyCorrectLights"
+    vr-mode-ui="enabled:false"
+    device-orientation-permission-ui="enabled:false"
+    framerate="12"
+    look-at="[camera]"
+  >
+    <a-camera id="camera" position="0 0 0" look-controls="enabled:false"></a-camera>
+    <a-entity id="target0" mindar-image-target="targetIndex:0">
+      <a-plane id="videoPlaneA" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader:flat; src:#videoA"></a-plane>
+      <a-plane id="videoPlaneB" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader:flat; src:#videoB"></a-plane>
+    </a-entity>
+  </a-scene>
 
 <script>
 (async ()=>{
+  const AR_FLAG_KEY = "arActive";
+  const TAB_ID = Date.now() + '-' + Math.random();
+  const HEARTBEAT_INTERVAL = 1000;
+  const TAB_TIMEOUT = 3000;
 
-  /* --------------------------
-     Ownership / tab coordination
-     -------------------------- */
-  const OWNER_KEY = "arOwner";            // stores { id, lastSeen }
-  const TAB_PREFIX = "tab_";             // per-tab heartbeat keys
-  const TAB_ID = Date.now() + "-" + Math.random().toString(36).slice(2);
-  const HEARTBEAT_INTERVAL = 2000;       // ms while visible
-  const OWNER_TTL = 9000;                // ms: owner considered stale after this (tune if needed)
-
-  let heartbeatTimer = null;
-  let ownerClaimed = false;              // true when this tab has claimed ownership
-  let bc = null;                         // optional BroadcastChannel
-
-  // Try BroadcastChannel for faster cross-tab messaging
-  if ('BroadcastChannel' in window) {
-    try { bc = new BroadcastChannel('ar_control_channel'); }
-    catch(e){ bc = null; }
-  }
-
-  function now(){ return Date.now(); }
-
-  function readOwner(){
-    try{
-      const raw = localStorage.getItem(OWNER_KEY);
-      return raw ? JSON.parse(raw) : null;
-    }catch(e){ return null; }
-  }
-  function writeOwner(id){
-    try {
-      localStorage.setItem(OWNER_KEY, JSON.stringify({ id, lastSeen: now() }));
-    } catch(e){}
-  }
-  function clearOwner(){
-    try { localStorage.removeItem(OWNER_KEY); } catch(e){}
-  }
-
-  function writeTabHeartbeat(){
-    try { localStorage.setItem(TAB_PREFIX + TAB_ID, String(now())); } catch(e){}
-  }
-  function removeTabHeartbeat(){
-    try { localStorage.removeItem(TAB_PREFIX + TAB_ID); } catch(e){}
-  }
-
-  function isFresh(ts){ return (now() - ts) < OWNER_TTL; }
-
-  function cleanupStaleTabEntries(){
-    // remove stale tab_ keys and return whether any alive tab exists
-    const keysToRemove = [];
+  function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
+  function cleanupTabs() {
+    const now = Date.now();
     let anyAlive = false;
-    for (let i=0; i<localStorage.length; i++){
-      const key = localStorage.key(i);
-      if (!key) continue;
-      if (key.startsWith(TAB_PREFIX)){
-        const val = parseInt(localStorage.getItem(key), 10) || 0;
-        if (isFresh(val)) anyAlive = true;
-        else keysToRemove.push(key);
+    for (let key in localStorage) {
+      if (key.startsWith('tab_')) {
+        const last = parseInt(localStorage.getItem(key),10);
+        if(now - last < TAB_TIMEOUT) anyAlive = true;
+        else localStorage.removeItem(key);
       }
     }
-    // remove stale keys
-    keysToRemove.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
-    return anyAlive;
-  }
-
-  function ownerIsFresh(owner){
-    if (!owner) return false;
-    return isFresh(owner.lastSeen);
-  }
-
-  function broadcast(msg){
-    // try BroadcastChannel first
-    try { if (bc) bc.postMessage(msg); } catch(e){}
-    // also write a small localStorage ping to wake non-BC tabs
-    try { localStorage.setItem('ar_bcast', JSON.stringify({...msg, _t: now()})); } catch(e){}
-  }
-
-  function startHeartbeat(){
-    if (heartbeatTimer) return;
-    // write immediate heartbeat
-    writeTabHeartbeat();
-    heartbeatTimer = setInterval(()=>{
-      writeTabHeartbeat();
-      if (ownerClaimed){
-        writeOwner(TAB_ID);
-      }
-    }, HEARTBEAT_INTERVAL);
-  }
-  function stopHeartbeat(){
-    if (!heartbeatTimer) return;
-    clearInterval(heartbeatTimer);
-    heartbeatTimer = null;
-  }
-
-  // Clean-up routine run at load to remove stale entries and decide whether we are blocked:
-  function preflightOwnerCheck(){
-    // write this tab's heartbeat (so others can see us)
-    writeTabHeartbeat();
-
-    // clear stale tab entries
-    const anyAlive = cleanupStaleTabEntries();
-
-    // read owner
-    let owner = readOwner();
-    if (owner && !ownerIsFresh(owner)){
-      // stale owner → clear
-      clearOwner();
-      owner = null;
+    if(!anyAlive){
+      localStorage.removeItem(AR_FLAG_KEY);
+      localStorage.removeItem('userAudioPref');
     }
-
-    // extra check: if owner exists but there are no alive 'tab_' keys (owner died without cleanup),
-    // remove owner as well
-    if (owner && !anyAlive){
-      clearOwner();
-      owner = null;
-    }
-
-    return owner; // may be null
   }
 
-  // storage events (other tabs claiming/releasing)
-  window.addEventListener('storage', (e) => {
-    if (!e.key) return;
-    if (e.key === OWNER_KEY){
-      const owner = readOwner();
-      if (owner && owner.id !== TAB_ID && ownerIsFresh(owner)) {
-        // someone else owns -> show inactive UI
-        showInactiveMessage();
-      }
-      // if owner removed (released) then nothing to do — user can start
-    } else if (e.key === 'ar_bcast') {
-      // parse broadcast pings from other tabs
-      try {
-        const msg = JSON.parse(e.newValue);
-        if (!msg) return;
-        if (msg.type === 'claim' && msg.id !== TAB_ID){
-          const owner = readOwner();
-          if (owner && owner.id === msg.id && ownerIsFresh(owner)){
-            showInactiveMessage();
-          }
-        } else if (msg.type === 'release'){ /* owner released — UI will show start button */ }
-      } catch (err){}
-    } else if (e.key && e.key.startsWith(TAB_PREFIX)){
-      // some tab heartbeat changed — optional: could refresh UI
-    }
-  });
-
-  if (bc){
-    bc.onmessage = (ev) => {
-      const msg = ev.data;
-      if (!msg) return;
-      if (msg.type === 'claim' && msg.id !== TAB_ID){
-        const owner = readOwner();
-        if (owner && owner.id === msg.id && ownerIsFresh(owner)) showInactiveMessage();
-      } else if (msg.type === 'release'){
-        // allow start
-      }
-    };
-  }
-
-  // show/hide UI helpers
   function showInactiveMessage(){
     document.getElementById("whiteOverlay").style.display="none";
-    document.getElementById("arSceneContainer").style.display="none";
     document.getElementById("inactiveTabMessage").style.display="flex";
   }
-  function showStartOverlay(){
-    document.getElementById("inactiveTabMessage").style.display="none";
-    document.getElementById("whiteOverlay").style.display="flex";
-    document.getElementById("arSceneContainer").style.display="none";
-  }
-  function showARSceneContainer(){
-    document.getElementById("inactiveTabMessage").style.display="none";
-    document.getElementById("whiteOverlay").style.display="none";
-    document.getElementById("arSceneContainer").style.display="block";
-  }
 
-  // call this at the end of startup checks
-  const initialOwner = preflightOwnerCheck();
-  if (initialOwner && initialOwner.id !== TAB_ID){
-    // blocked
-    showInactiveMessage();
-    // still start heartbeat so tab entries keep cleaned later
-    startHeartbeat();
-    // we don't claim ownership until user press start
-  } else {
-    // allowed to show start UI
-    showStartOverlay();
-    startHeartbeat(); // still maintain our 'tab_' presence
-  }
+  updateHeartbeat();
 
-  // attempt to claim ownership (used when user presses Start or Restart)
-  function tryClaimAndStart(arStartCallback){
-    // re-check owner at moment of claim
-    const owner = readOwner();
-    const anyAlive = cleanupStaleTabEntries();
-    if (owner && owner.id !== TAB_ID && ownerIsFresh(owner) && anyAlive){
-      // someone else owns => show inactive
-      showInactiveMessage();
-      return false;
-    }
-    // OK, claim
-    writeOwner(TAB_ID);
-    broadcast({ type: 'claim', id: TAB_ID });
-    ownerClaimed = true;
-    startHeartbeat();
-    if (typeof arStartCallback === 'function') arStartCallback();
-    return true;
-  }
-
-  function releaseOwnership(){
-    const owner = readOwner();
-    try {
-      if (owner && owner.id === TAB_ID){
-        clearOwner();
-        broadcast({ type: 'release', id: TAB_ID });
+  setTimeout(()=>{
+    const now = Date.now();
+    let anyAlive = false;
+    for(let key in localStorage){
+      if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
+        const last = parseInt(localStorage.getItem(key),10);
+        if(now - last < TAB_TIMEOUT) anyAlive = true;
+        else localStorage.removeItem(key);
       }
-    } catch(e){}
-    ownerClaimed = false;
-    // remove our tab heartbeat
-    removeTabHeartbeat();
-    stopHeartbeat();
-  }
-
-  // best-effort release on pagehide/unload
-  window.addEventListener('pagehide', ()=>{ releaseOwnership(); });
-  window.addEventListener('beforeunload', ()=>{ releaseOwnership(); });
-
-  /* --------------------------
-     AR / video / audio logic
-     -------------------------- */
-
-  // DOM nodes that exist independent of scene
-  const videoA = document.getElementById("videoA");
-  const videoB = document.getElementById("videoB");
-  const audioToggleBtn = document.getElementById("audioToggle");
-  const whiteOverlay = document.getElementById("whiteOverlay");
-  const startBtn = document.getElementById("startAR");
-  const restartBtn = document.getElementById("restartAR");
-  const stillWatchingContainer = document.getElementById("stillWatchingContainer");
-  const stillWatchingBtn = document.getElementById("stillWatchingBtn");
-  const arSceneContainer = document.getElementById("arSceneContainer");
-
-  // AR runtime variables
-  let sceneEl = null;               // current <a-scene> instance
-  let targetEl = null;              // mindar target entity
-  let videoPlaneA = null;
-  let videoPlaneB = null;
-
-  let activeVideo = videoA, nextVideo = videoB;
-  let activePlane = null, nextPlane = null;
-  let lastIndex = -1;
-  const TOTAL_VIDEOS = 60;
-  let loopCount = 0;
-  const LOOP_LIMIT = 3;
-
-  let arButtonPressed = false;
-  let arStartedOnce = false;
-  let isActive = false;
-  let targetCurrentlyVisible = false;
-
-  // audio variables
-  let audioCtx = null;
-  let audioBuffer = null;
-  let audioSource = null;
-  let audioLoaded = false;
-  let audioStartTime = 0;
-  let audioOffset = 0;
-
-  let userAudioPreference = localStorage.getItem("userAudioPref");
-  userAudioPreference = (userAudioPreference === null) ? true : (userAudioPreference === "true");
-
-  // utility: build new <a-scene> with the two planes, returning the scene element
-  function buildSceneElement(){
-    // create scene element
-    const s = document.createElement('a-scene');
-    s.setAttribute('id', 'arScene');
-    s.setAttribute('mindar-image', 'imageTargetSrc: ./assets/targets/targets.mind; smooth:true; smoothCount:5; smoothTolerance:0.1');
-    s.setAttribute('color-space', 'sRGB');
-    s.setAttribute('renderer', 'colorManagement:true, physicallyCorrectLights');
-    s.setAttribute('vr-mode-ui', 'enabled:false');
-    s.setAttribute('device-orientation-permission-ui', 'enabled:false');
-    s.setAttribute('framerate', '12');
-    s.setAttribute('look-at', '[camera]');
-
-    // camera
-    const cam = document.createElement('a-camera');
-    cam.setAttribute('id','camera');
-    cam.setAttribute('position','0 0 0');
-    cam.setAttribute('look-controls','enabled:false');
-    s.appendChild(cam);
-
-    // target entity
-    const ent = document.createElement('a-entity');
-    ent.setAttribute('id','target0');
-    ent.setAttribute('mindar-image-target','targetIndex:0');
-
-    // plane A
-    const pA = document.createElement('a-plane');
-    pA.setAttribute('id','videoPlaneA');
-    pA.setAttribute('width','1.2');
-    pA.setAttribute('height','1.2');
-    pA.setAttribute('position','0 0 0');
-    pA.setAttribute('look-at','[camera]');
-    pA.setAttribute('visible','false');
-    pA.setAttribute('material','shader:flat; src:#videoA');
-    ent.appendChild(pA);
-
-    // plane B
-    const pB = document.createElement('a-plane');
-    pB.setAttribute('id','videoPlaneB');
-    pB.setAttribute('width','1.2');
-    pB.setAttribute('height','1.2');
-    pB.setAttribute('position','0 0 0');
-    pB.setAttribute('look-at','[camera]');
-    pB.setAttribute('visible','false');
-    pB.setAttribute('material','shader:flat; src:#videoB');
-    ent.appendChild(pB);
-
-    s.appendChild(ent);
-
-    return s;
-  }
-
-  function destroyScene(){
-    // stop any playing videos & audio
-    try{ activeVideo.pause(); nextVideo.pause(); }catch(e){}
-    stopAudio();
-
-    // remove element from DOM
-    if (sceneEl && sceneEl.parentNode){
-      sceneEl.parentNode.removeChild(sceneEl);
     }
-    sceneEl = null;
-    targetEl = null;
-    videoPlaneA = null;
-    videoPlaneB = null;
-    activePlane = null; nextPlane = null;
-    // clear AR scene container display
-    arSceneContainer.style.display = 'none';
-  }
-
-  async function loadAudioOnce(){
-    if (audioLoaded) return;
-    try {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    } catch(e){
-      audioCtx = null;
+    if(anyAlive){
+      showInactiveMessage();
+      return;
     }
-    try {
-      const resp = await fetch('./assets/audio/background.mp3');
-      const arrayBuffer = await resp.arrayBuffer();
+
+    localStorage.setItem(AR_FLAG_KEY,"true");
+    initAR();
+  }, 50);
+
+  setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
+  setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
+  window.addEventListener('beforeunload', ()=>{ localStorage.removeItem('tab_'+TAB_ID); });
+
+  // -----------------------
+  // AR logic
+  // -----------------------
+  async function initAR(){
+    const whiteOverlay = document.getElementById("whiteOverlay");
+    const startBtn = document.getElementById("startAR");
+    const restartBtn = document.getElementById("restartAR");
+    const audioToggleBtn = document.getElementById("audioToggle");
+    const videoA = document.getElementById("videoA");
+    const videoB = document.getElementById("videoB");
+    const videoPlaneA = document.getElementById("videoPlaneA");
+    const videoPlaneB = document.getElementById("videoPlaneB");
+    const targetEl = document.getElementById("target0");
+    const arScene = document.getElementById("arScene");
+    const stillWatchingContainer = document.getElementById("stillWatchingContainer");
+    const stillWatchingBtn = document.getElementById("stillWatchingBtn");
+    const TOTAL_VIDEOS = 60;
+
+    let lastIndex=-1, activeVideo=videoA, nextVideo=videoB, activePlane=videoPlaneA, nextPlane=videoPlaneB;
+    let startClicked=false, arStartedOnce=false, arButtonPressed=false, isActive=false, loopCount=0, targetCurrentlyVisible=false;
+    const LOOP_LIMIT=3;
+
+    let userAudioPreference = localStorage.getItem("userAudioPref");
+    userAudioPreference = userAudioPreference===null?true:userAudioPreference!=="false";
+
+    let audioCtx, audioBuffer, audioSource, audioLoaded=false, audioStartTime=0, audioOffset=0;
+
+    async function loadAudioOnce(){
+      if(audioLoaded) return;
+      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const response = await fetch("./assets/audio/background.mp3");
+      const arrayBuffer = await response.arrayBuffer();
       audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
       audioLoaded = true;
-    } catch(e){
-      // audio load failed
-      audioLoaded = false;
-    }
-  }
-
-  function playAudio(){
-    if (!audioBuffer || !audioCtx) return;
-    stopAudio();
-    audioSource = audioCtx.createBufferSource();
-    audioSource.buffer = audioBuffer;
-    audioSource.loop = true;
-    audioSource.connect(audioCtx.destination);
-    audioStartTime = audioCtx.currentTime - audioOffset;
-    try {
-      audioSource.start(0, audioOffset % audioBuffer.duration);
-    } catch(e){}
-    audioToggleBtn.textContent = "🔊";
-  }
-
-  function stopAudio(){
-    if (audioSource){
-      try {
-        audioSource.stop();
-        audioOffset = (audioCtx.currentTime - audioStartTime) % audioBuffer.duration;
-      } catch(e){}
-      try { audioSource.disconnect(); } catch(e){}
-      audioSource = null;
-    }
-    audioToggleBtn.textContent = "🔇";
-  }
-
-  function pickRandomIndex(){
-    let idx;
-    do { idx = Math.floor(Math.random()*TOTAL_VIDEOS); } while (idx === lastIndex);
-    lastIndex = idx;
-    return idx;
-  }
-
-  function preloadVideo(videoEl){
-    const idx = pickRandomIndex();
-    videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
-    videoEl.currentTime = 0;
-    videoEl.load();
-  }
-
-  function swapVideo(){
-    const flip = Math.random() < 0.5 ? -1 : 1;
-    // flip horizontally sometimes for variety
-    nextPlane.setAttribute('scale', `${flip} 1 1`);
-    nextPlane.setAttribute('visible', 'true');
-    activePlane.setAttribute('visible', 'false');
-    nextVideo.currentTime = 0;
-    nextVideo.play().catch(()=>{ /* ignore play errors */ });
-    // swap references
-    [activeVideo, nextVideo] = [nextVideo, activeVideo];
-    [activePlane, nextPlane] = [nextPlane, activePlane];
-    preloadVideo(nextVideo);
-    loopCount++;
-    if (loopCount >= LOOP_LIMIT) showStillWatching();
-  }
-
-  // monitor loop for switching videos at end
-  let monitorRaf = null;
-  function monitorVideo(){
-    if (monitorRaf) cancelAnimationFrame(monitorRaf);
-    function step(){
-      try {
-        if (isActive && activeVideo && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration - 0.05){
-          swapVideo();
-        }
-      } catch(e){}
-      monitorRaf = requestAnimationFrame(step);
-    }
-    monitorRaf = requestAnimationFrame(step);
-  }
-
-  function showStillWatching(){
-    isActive = false;
-    try { activeVideo.pause(); nextVideo.pause(); } catch(e){}
-    stopAudio();
-    audioToggleBtn.style.display = 'none';
-    stillWatchingContainer.style.display = 'flex';
-  }
-
-  stillWatchingBtn.addEventListener('click', async ()=>{
-    stillWatchingContainer.style.display = 'none';
-    loopCount = 0;
-    isActive = true;
-    try { activeVideo.play(); } catch(e){}
-    activePlane.setAttribute('visible', 'true');
-    if (userAudioPreference){
-      await loadAudioOnce();
-      if (audioCtx && audioCtx.state === 'suspended'){ try{ await audioCtx.resume(); } catch(e){} }
-      playAudio();
-    }
-    audioToggleBtn.style.display = 'block';
-  });
-
-  async function handleTargetFound(){
-    targetCurrentlyVisible = true;
-    if (!arButtonPressed) return;
-    isActive = true;
-    activePlane.setAttribute('visible', 'true');
-    // set white background to reduce flash
-    if (sceneEl) sceneEl.style.background = '#ffffff';
-    if (!activeVideo.src){ preloadVideo(activeVideo); preloadVideo(nextVideo); }
-    try { await activeVideo.play(); } catch(e){}
-    if (userAudioPreference){
-      await loadAudioOnce();
-      if (audioCtx && audioCtx.state === 'suspended'){ try{ await audioCtx.resume(); } catch(e){} }
-      playAudio();
-    }
-    audioToggleBtn.style.display = 'block';
-  }
-
-  function handleTargetLost(){
-    targetCurrentlyVisible = false;
-    isActive = false;
-    try {
-      activePlane.setAttribute('visible', 'false');
-      nextPlane.setAttribute('visible', 'false');
-    } catch(e){}
-    if (sceneEl) sceneEl.style.background = null;
-    try { activeVideo.pause(); nextVideo.pause(); } catch(e){}
-    stopAudio();
-    audioToggleBtn.style.display = 'none';
-  }
-
-  // create, hook and start AR scene (called after claiming ownership)
-  async function createAndStartScene(){
-    // destroy previous if any
-    destroyScene();
-
-    sceneEl = buildSceneElement();
-    arSceneContainer.appendChild(sceneEl);
-    arSceneContainer.style.display = 'block';
-
-    // find the elements we need (after scene is attached)
-    // small delay to let A-Frame parse children
-    await new Promise(r => setTimeout(r, 50));
-
-    targetEl = sceneEl.querySelector('#target0');
-    videoPlaneA = sceneEl.querySelector('#videoPlaneA');
-    videoPlaneB = sceneEl.querySelector('#videoPlaneB');
-
-    // reference planes/ videos for swapping
-    activePlane = videoPlaneA;
-    nextPlane = videoPlaneB;
-    activeVideo = videoA;
-    nextVideo = videoB;
-
-    // ensure playback primed (muted videos can be played programmatically on many browsers)
-    [videoA, videoB].forEach(v => { try{ v.currentTime = 0; v.play().then(()=>v.pause()).catch(()=>{});}catch(e){} });
-
-    // attach target handlers
-    if (targetEl){
-      targetEl.addEventListener('targetFound', () => { handleTargetFound(); });
-      targetEl.addEventListener('targetLost',  () => { handleTargetLost(); });
     }
 
-    // start monitor loop (it will only swap when isActive true)
-    monitorVideo();
-  }
+    function playAudio(){
+      if(!audioBuffer) return;
+      stopAudio();
+      audioSource = audioCtx.createBufferSource();
+      audioSource.buffer = audioBuffer;
+      audioSource.loop=true;
+      audioSource.connect(audioCtx.destination);
+      audioStartTime = audioCtx.currentTime - audioOffset;
+      audioSource.start(0,audioOffset % audioBuffer.duration);
+      audioToggleBtn.textContent="🔊";
+    }
 
-  // Start AR action invoked by Start button (claims ownership first)
-  async function startARFlow(){
-    const claimed = tryClaimAndStart(async ()=>{
-      // UI changes
-      whiteOverlay.style.display = 'none';
-      arSceneContainer.style.display = 'block';
-      restartBtn.style.display = 'block';
-      startBtn.style.display = 'none';
+    function stopAudio(){
+      if(audioSource){
+        try{ audioSource.stop(); audioOffset=(audioCtx.currentTime-audioStartTime) % audioBuffer.duration; }catch{}
+        audioSource.disconnect(); audioSource=null;
+      }
+      audioToggleBtn.textContent="🔇";
+    }
+
+    function pickRandomIndex(){
+      let idx;
+      do{ idx=Math.floor(Math.random()*TOTAL_VIDEOS); }while(idx===lastIndex);
+      lastIndex=idx;
+      return idx;
+    }
+
+    function preloadVideo(videoEl){
+      const idx = pickRandomIndex();
+      videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
+      videoEl.currentTime=0;
+      videoEl.load();
+    }
+
+    function swapVideo(){
+      const flip=Math.random()<0.5?-1:1;
+      nextPlane.setAttribute("scale",`${flip} 1 1`);
+      nextPlane.setAttribute("visible",true);
+      activePlane.setAttribute("visible",false);
+      nextVideo.currentTime=0;
+      nextVideo.play();
+      [activeVideo,nextVideo]=[nextVideo,activeVideo];
+      [activePlane,nextPlane]=[nextPlane,activePlane];
+      preloadVideo(nextVideo);
+      loopCount++;
+      if(loopCount>=LOOP_LIMIT) showStillWatching();
+    }
+
+    function monitorVideo(){
+      if(isActive && activeVideo.duration>0 && activeVideo.currentTime>=activeVideo.duration-0.05){
+        swapVideo();
+      }
+      requestAnimationFrame(monitorVideo);
+    }
+
+    function showStillWatching(){
+      isActive=false;
+      activeVideo.pause();
+      nextVideo.pause();
+      stopAudio();
+      audioToggleBtn.style.display="none";
+      stillWatchingContainer.style.display="flex";
+    }
+
+    stillWatchingBtn.addEventListener("click", async ()=>{
+      stillWatchingContainer.style.display="none";
+      loopCount=0;
+      isActive=true;
+      activeVideo.play();
+      activePlane.setAttribute("visible",true);
+      if(userAudioPreference){ await loadAudioOnce(); playAudio(); }
+      audioToggleBtn.style.display="block";
+    });
+
+    async function handleTargetFound(){
+      if(!arButtonPressed) return;
+      isActive=true;
+      activePlane.setAttribute("visible",true);
+      arScene.style.background="#ffffff";
+      if(!activeVideo.src){ preloadVideo(activeVideo); preloadVideo(nextVideo); }
+      activeVideo.play();
+      if(userAudioPreference){ await loadAudioOnce(); playAudio(); }
+      audioToggleBtn.style.display="block";
+    }
+
+    startBtn.addEventListener("click",()=>{
+      startClicked = true;
       arButtonPressed = true;
       arStartedOnce = true;
-
-      // create scene and start
-      await createAndStartScene();
-      // if the target is currently visible (some browsers may have active camera at this point),
-      // the MindAR targetFound event will fire and handleTargetFound will start playback.
+      whiteOverlay.style.display="none";
+      arScene.style.display="block";
+      monitorVideo();
+      if(targetCurrentlyVisible) handleTargetFound();
     });
-    return claimed;
-  }
 
-  // Restart AR: destroy & recreate scene, re-claim ownership (best-effort)
-  async function restartARFlow(){
-    // try re-claiming; if blocked by another tab we will show inactive message
-    const claimed = tryClaimAndStart(async ()=>{
-      // tear down and rebuild the scene
-      destroyScene();
-      // reset some flags
+    restartBtn.addEventListener("click",()=>{
+      startClicked = true;
       arButtonPressed = true;
-      arStartedOnce = true;
-      whiteOverlay.style.display = 'none';
-      await createAndStartScene();
+      whiteOverlay.style.display="none";
+      arScene.style.display="block";
+      monitorVideo();
+      if(targetCurrentlyVisible) handleTargetFound();
     });
-    return claimed;
-  }
 
-  // wire start / restart buttons
-  startBtn.addEventListener('click', async ()=>{
-    // This is a user gesture — safe to resume audio if needed
-    const ok = await startARFlow();
-    if (ok){
-      // if audio preference true, ensure audio context resumed & play
-      if (userAudioPreference){
-        await loadAudioOnce();
-        if (audioCtx && audioCtx.state === 'suspended'){ try{ await audioCtx.resume(); } catch(e){} }
-        playAudio();
-      }
-    }
-  });
+    audioToggleBtn.addEventListener("click", async ()=>{
+      await loadAudioOnce();
+      if(!audioSource){ playAudio(); userAudioPreference=true; }
+      else{ stopAudio(); userAudioPreference=false; }
+      localStorage.setItem("userAudioPref",userAudioPreference);
+    });
 
-  restartBtn.addEventListener('click', async ()=>{
-    // user clicked restart — perform destroy & recreate
-    // also ensure we have ownership (reclaim)
-    const ok = await restartARFlow();
-    if (ok){
-      // if audio preference true, ensure audio context resumed & play
-      if (userAudioPreference){
-        await loadAudioOnce();
-        if (audioCtx && audioCtx.state === 'suspended'){ try{ await audioCtx.resume(); } catch(e){} }
-        playAudio();
-      }
-    }
-  });
+    targetEl.addEventListener("targetFound", ()=>{
+      targetCurrentlyVisible = true;
+      if(arButtonPressed) handleTargetFound();
+    });
 
-  // audio toggle button
-  audioToggleBtn.addEventListener('click', async ()=>{
-    // resume ctx on iOS if suspended (user gesture)
-    await loadAudioOnce();
-    if (audioCtx && audioCtx.state === 'suspended'){ try{ await audioCtx.resume(); } catch(e){} }
-    if (!audioSource){
-      playAudio();
-      userAudioPreference = true;
-    } else {
+    targetEl.addEventListener("targetLost", ()=>{
+      targetCurrentlyVisible=false;
+      isActive=false;
+      activePlane.setAttribute("visible",false);
+      nextPlane.setAttribute("visible",false);
+      arScene.style.background=null;
+      activeVideo.pause();
+      nextVideo.pause();
       stopAudio();
-      userAudioPreference = false;
-    }
-    localStorage.setItem('userAudioPref', String(userAudioPreference));
-  });
+      audioToggleBtn.style.display="none";
+    });
 
-  // handle page visibility — pause/resume videos and audio appropriately
-  document.addEventListener('visibilitychange', ()=>{
-    if (document.hidden){
-      // pause AR activity
-      isActive = false;
-      try { activeVideo.pause(); nextVideo.pause(); } catch(e){}
-      stopAudio();
-      audioToggleBtn.style.display = 'none';
-      try { if (activePlane) activePlane.setAttribute('visible','false'); if (nextPlane) nextPlane.setAttribute('visible','false'); } catch(e){}
-      // we keep scene in DOM but hidden
-      // Do NOT release ownership automatically — releaseOwnership only on unload or manual action
-    } else {
-      // when returning to the page: show start overlay and show restart button if ar was started once
-      // do not autoplay audio; require user gesture (restart)
-      whiteOverlay.style.display = 'block';
-      arSceneContainer.style.display = 'none';
-      audioToggleBtn.style.display = 'none';
-
-      if (arStartedOnce){
-        startBtn.style.display = 'none';
-        restartBtn.style.display = 'block';
-        arButtonPressed = false; // require user to press restart
+    document.addEventListener("visibilitychange", ()=>{
+      if(document.hidden){
+        isActive=false;
+        activeVideo.pause();
+        nextVideo.pause();
+        stopAudio();
+        audioToggleBtn.style.display="none";
+        activePlane.setAttribute("visible",false);
+        nextPlane.setAttribute("visible",false);
       } else {
-        startBtn.style.display = 'block';
-        restartBtn.style.display = 'none';
+        whiteOverlay.style.display="block";
+        arScene.style.display="none";
+        audioToggleBtn.style.display="none";
+
+        if(arStartedOnce){
+          startBtn.style.display="none";
+          restartBtn.style.display="block";
+          arButtonPressed = false;
+        } else {
+          startBtn.style.display="block";
+          restartBtn.style.display="none";
+        }
       }
-    }
-  });
+    });
 
-  // Periodic cleanup: remove stale tab_ keys and stale owner if no alive tabs
-  setInterval(()=>{
-    const anyAlive = cleanupStaleTabEntries();
-    const owner = readOwner();
-    if (owner && !ownerIsFresh(owner)){
-      clearOwner();
-      broadcast({ type: 'release', id: owner.id });
-    } else if (owner && !anyAlive){
-      // weird edge-case: owner exists but no alive tab_ entries — clear it
-      clearOwner();
-      broadcast({ type: 'release', id: owner.id });
-    }
-  }, OWNER_TTL);
-
-  // ensure UI initial state for audio toggle button
-  audioToggleBtn.textContent = userAudioPreference ? "🔊" : "🔇";
-
-  // Preload two videos (won't play)
-  preloadVideo(videoA);
-  preloadVideo(videoB);
+    [videoA,videoB].forEach(v=>{ v.currentTime=0; v.play(); v.pause(); });
+    preloadVideo(videoA);
+    preloadVideo(videoB);
+    await loadAudioOnce();
+  }
 
 })();
 </script>
