@@ -120,9 +120,10 @@
   const AR_FLAG_KEY = "arActive";
   const TAB_ID = Date.now() + '-' + Math.random();
   const HEARTBEAT_INTERVAL = 1000;
-  const TAB_TIMEOUT = 1000;
+  const TAB_TIMEOUT = 2000; // slightly longer for iOS
 
   function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
+
   function cleanupTabs() {
     const now = Date.now();
     let anyAlive = false;
@@ -133,9 +134,19 @@
         else localStorage.removeItem(key);
       }
     }
-    if(!anyAlive){
-      localStorage.removeItem(AR_FLAG_KEY);
+    if(!anyAlive) localStorage.removeItem(AR_FLAG_KEY);
+  }
+
+  function checkOtherTabs() {
+    cleanupTabs();
+    const now = Date.now();
+    for(let key in localStorage){
+      if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
+        const last = parseInt(localStorage.getItem(key),10);
+        if(now - last < TAB_TIMEOUT) return true;
+      }
     }
+    return false;
   }
 
   function showInactiveMessage(){
@@ -148,28 +159,9 @@
   setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
   window.addEventListener('beforeunload', ()=>{ localStorage.removeItem('tab_'+TAB_ID); });
 
-  // --- Immediate check for stale tabs ---
-  (()=>{
-    cleanupTabs();
-    const now = Date.now();
-    let anyAlive = false;
-    for(let key in localStorage){
-      if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
-        const last = parseInt(localStorage.getItem(key),10);
-        if(now - last < TAB_TIMEOUT) anyAlive = true;
-      }
-    }
-    if(anyAlive){
-      showInactiveMessage();
-    } else {
-      localStorage.setItem(AR_FLAG_KEY,"true");
-      initAR();
-    }
-  })();
+  if(checkOtherTabs()){ showInactiveMessage(); return; }
+  localStorage.setItem(AR_FLAG_KEY,"true");
 
-  // -----------------------
-  // AR logic
-  // -----------------------
   async function initAR(){
     const whiteOverlay = document.getElementById("whiteOverlay");
     const startBtn = document.getElementById("startAR");
@@ -186,7 +178,7 @@
     const TOTAL_VIDEOS = 60;
 
     let lastIndex=-1, activeVideo=videoA, nextVideo=videoB, activePlane=videoPlaneA, nextPlane=videoPlaneB;
-    let startClicked=false, arStartedOnce=false, arButtonPressed=false, isActive=false, loopCount=0, targetCurrentlyVisible=false;
+    let arButtonPressed=false, isActive=false, loopCount=0, targetCurrentlyVisible=false;
     const LOOP_LIMIT=3;
 
     let userAudioPreference = localStorage.getItem("userAudioPref");
@@ -217,10 +209,7 @@
 
     function stopAudio(){
       if(audioSource){
-        try{
-          audioSource.stop();
-          audioOffset=(audioCtx.currentTime-audioStartTime) % audioBuffer.duration;
-        }catch{}
+        try{ audioSource.stop(); audioOffset=(audioCtx.currentTime-audioStartTime)%audioBuffer.duration; }catch{}
         audioSource.disconnect(); audioSource=null;
       }
       audioToggleBtn.textContent="🔇";
@@ -274,7 +263,7 @@
       stillWatchingContainer.style.display="none";
       loopCount=0;
       isActive=true;
-      activeVideo.play();
+      await activeVideo.play();
       activePlane.setAttribute("visible",true);
       if(userAudioPreference){ await loadAudioOnce(); playAudio(); }
       audioToggleBtn.style.display="block";
@@ -286,29 +275,27 @@
       activePlane.setAttribute("visible",true);
       arScene.style.background="#ffffff";
       if(!activeVideo.src){ preloadVideo(activeVideo); preloadVideo(nextVideo); }
-      activeVideo.play();
+      await activeVideo.play();
       if(userAudioPreference){ await loadAudioOnce(); playAudio(); }
       audioToggleBtn.style.display="block";
     }
 
-    startBtn.addEventListener("click",()=>{
-      startClicked = true;
+    async function startOrRestartAR(isRestart=false){
       arButtonPressed = true;
-      arStartedOnce = true;
       whiteOverlay.style.display="none";
       arScene.style.display="block";
       monitorVideo();
-      if(targetCurrentlyVisible) handleTargetFound();
-    });
+      if(!activeVideo.src){ preloadVideo(activeVideo); preloadVideo(nextVideo); }
+      await activeVideo.play();
+      if(userAudioPreference){ await loadAudioOnce(); playAudio(); }
+      audioToggleBtn.style.display="block";
+      if(targetCurrentlyVisible) await handleTargetFound();
+      startBtn.style.display=isRestart?"none":"block";
+      restartBtn.style.display=isRestart?"block":"none";
+    }
 
-    restartBtn.addEventListener("click",()=>{
-      startClicked = true;
-      arButtonPressed = true;
-      whiteOverlay.style.display="none";
-      arScene.style.display="block";
-      monitorVideo();
-      if(targetCurrentlyVisible) handleTargetFound();
-    });
+    startBtn.addEventListener("click", ()=>startOrRestartAR(false));
+    restartBtn.addEventListener("click", ()=>startOrRestartAR(true));
 
     audioToggleBtn.addEventListener("click", async ()=>{
       await loadAudioOnce();
@@ -317,11 +304,7 @@
       localStorage.setItem("userAudioPref",userAudioPreference);
     });
 
-    targetEl.addEventListener("targetFound", ()=>{
-      targetCurrentlyVisible = true;
-      if(arButtonPressed) handleTargetFound();
-    });
-
+    targetEl.addEventListener("targetFound", ()=>{ targetCurrentlyVisible = true; if(arButtonPressed) handleTargetFound(); });
     targetEl.addEventListener("targetLost", ()=>{
       targetCurrentlyVisible=false;
       isActive=false;
@@ -344,18 +327,10 @@
         activePlane.setAttribute("visible",false);
         nextPlane.setAttribute("visible",false);
       } else {
+        if(checkOtherTabs()){ showInactiveMessage(); return; }
         whiteOverlay.style.display="block";
         arScene.style.display="none";
         audioToggleBtn.style.display="none";
-
-        if(arStartedOnce){
-          startBtn.style.display="none";
-          restartBtn.style.display="block";
-          arButtonPressed = false;
-        } else {
-          startBtn.style.display="block";
-          restartBtn.style.display="none";
-        }
       }
     });
 
@@ -364,6 +339,8 @@
     preloadVideo(videoB);
     await loadAudioOnce();
   }
+
+  initAR();
 })();
 </script>
 
