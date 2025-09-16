@@ -6,43 +6,43 @@
   <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
   <style>
-    body { margin:0; font-family:sans-serif; }
+    body { margin: 0; font-family: sans-serif; }
 
     #whiteOverlay, #inactiveTabMessage {
-      position: fixed; top:0; left:0; width:100%; height:100%;
-      display:flex; align-items:center; justify-content:center;
-      background:white; z-index:10;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      background: white; z-index: 10;
     }
 
     #preARMessage {
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      height:100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
       gap: 1em;
     }
 
     #startAR, #restartAR {
-      padding:1em 2em; font-size:18px; cursor:pointer;
+      padding: 1em 2em; font-size: 18px; cursor: pointer;
     }
-    #restartAR { display:none; }
+    #restartAR { display: none; }
 
     #audioToggle {
-      position: fixed; bottom:5%; right:5%; z-index:20;
-      padding:0.5em 1em; font-size:18px; cursor:pointer; display:none;
+      position: fixed; bottom: 5%; right: 5%; z-index: 20;
+      padding: 0.5em 1em; font-size: 18px; cursor: pointer; display: none;
     }
 
-    #arScene { display:none; }
+    #arScene { display: none; }
 
     #stillWatchingContainer {
-      position: fixed; top:0; left:0; width:100%; height:100%;
-      background:white; z-index:50; display:none;
-      align-items:center; justify-content:center;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: white; z-index: 50; display: none;
+      align-items: center; justify-content: center;
     }
 
     #stillWatchingBtn {
-      padding:1em 2em; font-size:18px; cursor:pointer;
+      padding: 1em 2em; font-size: 18px; cursor: pointer;
     }
 
     #inactiveTabMessage {
@@ -56,18 +56,13 @@
     }
 
     #inactiveTabInner {
-      max-width: 600px;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      max-width: 600px; width: 100%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
     }
 
     #inactiveTabInner p {
-      margin: 0.5em 0;
-      font-size: 1.2em;
-      word-wrap: break-word;
+      margin: 0.5em 0; font-size: 1.2em; word-wrap: break-word;
     }
 
     @media (max-width: 480px) { #inactiveTabInner p { font-size: 1em; } }
@@ -76,307 +71,295 @@
 </head>
 <body>
 
-<div id="whiteOverlay">
-  <div id="preARMessage">
-    <button id="startAR">Start AR</button>
-    <button id="restartAR">Restart AR</button>
+  <div id="whiteOverlay">
+    <div id="preARMessage">
+      <button id="startAR">Start AR</button>
+      <button id="restartAR">Restart AR</button>
+    </div>
   </div>
-</div>
 
-<div id="inactiveTabMessage">
-  <div id="inactiveTabInner">
-    <p>AR is already active in another tab.</p>
-    <p>Please close this tab and switch back to the active tab to continue using AR.</p>
+  <div id="inactiveTabMessage">
+    <div id="inactiveTabInner">
+      <p>AR is already active in another tab.</p>
+      <p>Please close this tab and switch back to the active tab to continue using AR.</p>
+    </div>
   </div>
-</div>
 
-<div id="stillWatchingContainer">
-  <button id="stillWatchingBtn">Still Watching?</button>
-</div>
+  <div id="stillWatchingContainer">
+    <button id="stillWatchingBtn">Still Watching?</button>
+  </div>
 
-<button id="audioToggle">🔇</button>
-<video id="videoA" style="display:none" muted playsinline></video>
-<video id="videoB" style="display:none" muted playsinline></video>
+  <button id="audioToggle">🔇</button>
 
-<a-scene
-  id="arScene"
-  mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth:true; smoothCount:5; smoothTolerance:0.1"
-  color-space="sRGB"
-  renderer="colorManagement:true, physicallyCorrectLights"
-  vr-mode-ui="enabled:false"
-  device-orientation-permission-ui="enabled:false"
-  framerate="12"
-  look-at="[camera]"
->
-  <a-camera id="camera" position="0 0 0" look-controls="enabled:false"></a-camera>
-  <a-entity id="target0" mindar-image-target="targetIndex:0">
-    <a-plane id="videoPlaneA" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader:flat; src:#videoA"></a-plane>
-    <a-plane id="videoPlaneB" width="1.2" height="1.2" position="0 0 0" look-at="[camera]" visible="false" material="shader:flat; src:#videoB"></a-plane>
-  </a-entity>
-</a-scene>
+  <video id="videoA" style="display:none" muted playsinline></video>
+  <video id="videoB" style="display:none" muted playsinline></video>
 
-<script>
-(async ()=>{
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  const isAndroid = /Android/.test(navigator.userAgent);
+  <a-scene id="arScene"
+    mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth:true; smoothCount:5; smoothTolerance:0.1"
+    color-space="sRGB"
+    renderer="colorManagement:true, physicallyCorrectLights"
+    vr-mode-ui="enabled:false"
+    device-orientation-permission-ui="enabled:false"
+    framerate="12"
+    look-at="[camera]"
+  >
+    <a-camera id="camera" position="0 0 0" look-controls="enabled:false"></a-camera>
+    <a-entity id="target0" mindar-image-target="targetIndex:0">
+      <a-plane id="videoPlaneA" width="1.2" height="1.2" position="0 0 0"
+        look-at="[camera]" visible="false" material="shader:flat; src:#videoA"></a-plane>
+      <a-plane id="videoPlaneB" width="1.2" height="1.2" position="0 0 0"
+        look-at="[camera]" visible="false" material="shader:flat; src:#videoB"></a-plane>
+    </a-entity>
+  </a-scene>
 
-  // --- Android logic (keep exactly as before) ---
-  if(isAndroid){
-    const AR_FLAG_KEY = "arActive";
-    const TAB_ID = Date.now() + '-' + Math.random();
-    const HEARTBEAT_INTERVAL = 1000;
-    const TAB_TIMEOUT = 1000;
+  <script>
+    (async () => {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const isAndroid = /Android/.test(navigator.userAgent);
 
-    function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
-    function cleanupTabs() {
-      const now = Date.now();
-      let anyAlive = false;
-      for (let key in localStorage) {
-        if (key.startsWith('tab_')) {
-          const last = parseInt(localStorage.getItem(key),10);
-          if(now - last < TAB_TIMEOUT) anyAlive = true;
-          else localStorage.removeItem(key);
+      // --- Android logic (keep exactly as before) ---
+      if (isAndroid) {
+        const AR_FLAG_KEY = "arActive";
+        const TAB_ID = Date.now() + '-' + Math.random();
+        const HEARTBEAT_INTERVAL = 1000;
+        const TAB_TIMEOUT = 1000;
+
+        function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
+        function cleanupTabs() {
+          const now = Date.now();
+          let anyAlive = false;
+          for (let key in localStorage) {
+            if (key.startsWith('tab_')) {
+              const last = parseInt(localStorage.getItem(key), 10);
+              if (now - last < TAB_TIMEOUT) anyAlive = true;
+              else localStorage.removeItem(key);
+            }
+          }
+          if (!anyAlive) localStorage.removeItem(AR_FLAG_KEY);
         }
-      }
-      if(!anyAlive){
-        localStorage.removeItem(AR_FLAG_KEY);
-      }
-    }
 
-    function showInactiveMessage(){
-      document.getElementById("whiteOverlay").style.display="none";
-      document.getElementById("inactiveTabMessage").style.display="flex";
-    }
-
-    updateHeartbeat();
-    setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
-    setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
-    window.addEventListener('beforeunload', ()=>{ localStorage.removeItem('tab_'+TAB_ID); });
-
-    (()=>{
-      cleanupTabs();
-      const now = Date.now();
-      let anyAlive = false;
-      for(let key in localStorage){
-        if(key.startsWith('tab_') && key !== 'tab_'+TAB_ID){
-          const last = parseInt(localStorage.getItem(key),10);
-          if(now - last < TAB_TIMEOUT) anyAlive = true;
+        function showInactiveMessage() {
+          document.getElementById("whiteOverlay").style.display = "none";
+          document.getElementById("inactiveTabMessage").style.display = "flex";
         }
+
+        updateHeartbeat();
+        setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
+        setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
+        window.addEventListener('beforeunload', () => { localStorage.removeItem('tab_' + TAB_ID); });
+
+        (() => {
+          cleanupTabs();
+          const now = Date.now();
+          let anyAlive = false;
+          for (let key in localStorage) {
+            if (key.startsWith('tab_') && key !== 'tab_' + TAB_ID) {
+              const last = parseInt(localStorage.getItem(key), 10);
+              if (now - last < TAB_TIMEOUT) anyAlive = true;
+            }
+          }
+          if (anyAlive) showInactiveMessage();
+          else {
+            localStorage.setItem(AR_FLAG_KEY, "true");
+            initAR();
+          }
+        })();
       }
-      if(anyAlive){
-        showInactiveMessage();
-      } else {
-        localStorage.setItem(AR_FLAG_KEY,"true");
-        initAR();
+
+      // --- iOS logic ---
+      if (isIOS) {
+        initAR(); // ignore multi-tab detection
+      }
+
+      // -----------------------
+      // Shared AR logic
+      // -----------------------
+      async function initAR() {
+        const whiteOverlay = document.getElementById("whiteOverlay");
+        const startBtn = document.getElementById("startAR");
+        const restartBtn = document.getElementById("restartAR");
+        const audioToggleBtn = document.getElementById("audioToggle");
+        const videoA = document.getElementById("videoA");
+        const videoB = document.getElementById("videoB");
+        const videoPlaneA = document.getElementById("videoPlaneA");
+        const videoPlaneB = document.getElementById("videoPlaneB");
+        const targetEl = document.getElementById("target0");
+        const arScene = document.getElementById("arScene");
+        const stillWatchingContainer = document.getElementById("stillWatchingContainer");
+        const stillWatchingBtn = document.getElementById("stillWatchingBtn");
+        const TOTAL_VIDEOS = 60;
+
+        let lastIndex = -1, activeVideo = videoA, nextVideo = videoB, activePlane = videoPlaneA, nextPlane = videoPlaneB;
+        let startClicked = false, arStartedOnce = false, arButtonPressed = false;
+        let isActive = false, loopCount = 0, targetCurrentlyVisible = false;
+        const LOOP_LIMIT = 3;
+
+        let userAudioPreference = localStorage.getItem("userAudioPref");
+        userAudioPreference = userAudioPreference === null ? true : userAudioPreference !== "false";
+
+        let audioCtx, audioBuffer, audioSource, audioLoaded = false, audioStartTime = 0, audioOffset = 0;
+
+        async function loadAudioOnce() {
+          if (audioLoaded) return;
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const response = await fetch("./assets/audio/background.mp3");
+          const arrayBuffer = await response.arrayBuffer();
+          audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+          audioLoaded = true;
+        }
+
+        function playAudio() {
+          if (!audioBuffer) return;
+          stopAudio();
+          audioSource = audioCtx.createBufferSource();
+          audioSource.buffer = audioBuffer;
+          audioSource.loop = true;
+          audioSource.connect(audioCtx.destination);
+          audioStartTime = audioCtx.currentTime - audioOffset;
+          audioSource.start(0, audioOffset % audioBuffer.duration);
+          audioToggleBtn.textContent = "🔊";
+        }
+
+        function stopAudio() {
+          if (audioSource) {
+            try {
+              audioSource.stop();
+              audioOffset = (audioCtx.currentTime - audioStartTime) % audioBuffer.duration;
+            } catch { }
+            audioSource.disconnect(); audioSource = null;
+          }
+          audioToggleBtn.textContent = "🔇";
+        }
+
+        function pickRandomIndex() {
+          let idx;
+          do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
+          lastIndex = idx;
+          return idx;
+        }
+
+        function preloadVideo(videoEl) {
+          const idx = pickRandomIndex();
+          videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
+          videoEl.currentTime = 0;
+          videoEl.load();
+        }
+
+        function swapVideo() {
+          const flip = Math.random() < 0.5 ? -1 : 1;
+          nextPlane.setAttribute("scale", `${flip} 1 1`);
+          nextPlane.setAttribute("visible", true);
+          activePlane.setAttribute("visible", false);
+          nextVideo.currentTime = 0;
+          nextVideo.play();
+          [activeVideo, nextVideo] = [nextVideo, activeVideo];
+          [activePlane, nextPlane] = [nextPlane, activePlane];
+          preloadVideo(nextVideo);
+          loopCount++;
+          if (loopCount >= LOOP_LIMIT) showStillWatching();
+        }
+
+        function monitorVideo() {
+          if (isActive && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration - 0.05) {
+            swapVideo();
+          }
+          requestAnimationFrame(monitorVideo);
+        }
+
+        function showStillWatching() {
+          isActive = false;
+          activeVideo.pause();
+          nextVideo.pause();
+          stopAudio();
+          audioToggleBtn.style.display = "none";
+          stillWatchingContainer.style.display = "flex";
+        }
+
+        stillWatchingBtn.addEventListener("click", async () => {
+          stillWatchingContainer.style.display = "none";
+          loopCount = 0;
+          isActive = true;
+          activeVideo.play();
+          activePlane.setAttribute("visible", true);
+          if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
+          audioToggleBtn.style.display = "block";
+        });
+
+        async function handleTargetFound() {
+          isActive = true;
+          activePlane.setAttribute("visible", true);
+          arScene.style.background = "#ffffff";
+          if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
+          activeVideo.play();
+          if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
+          audioToggleBtn.style.display = "block";
+        }
+
+        startBtn.addEventListener("click", () => {
+          startClicked = true;
+          arButtonPressed = true;
+          arStartedOnce = true;
+          whiteOverlay.style.display = "none";
+          arScene.style.display = "block";
+          monitorVideo();
+        });
+
+        restartBtn.addEventListener("click", () => {
+          startClicked = true;
+          arButtonPressed = true;
+          whiteOverlay.style.display = "none";
+          arScene.style.display = "block";
+          monitorVideo();
+        });
+
+        targetEl.addEventListener("targetFound", () => {
+          targetCurrentlyVisible = true;
+          if (arButtonPressed) handleTargetFound();
+        });
+
+        targetEl.addEventListener("targetLost", () => {
+          targetCurrentlyVisible = false;
+          isActive = false;
+          activePlane.setAttribute("visible", false);
+          nextPlane.setAttribute("visible", false);
+          arScene.style.background = null;
+          activeVideo.pause();
+          nextVideo.pause();
+          stopAudio();
+          audioToggleBtn.style.display = "none";
+        });
+
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) {
+            isActive = false;
+            activeVideo.pause();
+            nextVideo.pause();
+            stopAudio();
+            audioToggleBtn.style.display = "none";
+            activePlane.setAttribute("visible", false);
+            nextPlane.setAttribute("visible", false);
+          } else {
+            whiteOverlay.style.display = "block";
+            arScene.style.display = "none";
+            audioToggleBtn.style.display = "none";
+            if (arStartedOnce) {
+              startBtn.style.display = "none";
+              restartBtn.style.display = "block";
+              arButtonPressed = false;
+            } else {
+              startBtn.style.display = "block";
+              restartBtn.style.display = "none";
+            }
+          }
+        });
+
+        [videoA, videoB].forEach(v => { v.currentTime = 0; v.play(); v.pause(); });
+        preloadVideo(videoA);
+        preloadVideo(videoB);
+        await loadAudioOnce();
       }
     })();
-  }
-
-  // --- iOS logic (restore original behavior exactly) ---
-  if(isIOS){
-    // Simply run the original full code as before we separated Android.
-    initAR(); // original function contains full iOS behavior including tab checks
-  }
-
-  // -----------------------
-  // AR logic (shared for both, Android untouched)
-  // -----------------------
-  async function initAR(){
-    const whiteOverlay = document.getElementById("whiteOverlay");
-    const startBtn = document.getElementById("startAR");
-    const restartBtn = document.getElementById("restartAR");
-    const audioToggleBtn = document.getElementById("audioToggle");
-    const videoA = document.getElementById("videoA");
-    const videoB = document.getElementById("videoB");
-    const videoPlaneA = document.getElementById("videoPlaneA");
-    const videoPlaneB = document.getElementById("videoPlaneB");
-    const targetEl = document.getElementById("target0");
-    const arScene = document.getElementById("arScene");
-    const stillWatchingContainer = document.getElementById("stillWatchingContainer");
-    const stillWatchingBtn = document.getElementById("stillWatchingBtn");
-    const TOTAL_VIDEOS = 60;
-
-    let lastIndex=-1, activeVideo=videoA, nextVideo=videoB, activePlane=videoPlaneA, nextPlane=videoPlaneB;
-    let startClicked=false, arStartedOnce=false, arButtonPressed=false, isActive=false, loopCount=0, targetCurrentlyVisible=false;
-    const LOOP_LIMIT=3;
-
-    let userAudioPreference = localStorage.getItem("userAudioPref");
-    userAudioPreference = userAudioPreference===null?true:userAudioPreference!=="false";
-
-    let audioCtx, audioBuffer, audioSource, audioLoaded=false, audioStartTime=0, audioOffset=0;
-
-    async function loadAudioOnce(){
-      if(audioLoaded) return;
-      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-      const response = await fetch("./assets/audio/background.mp3");
-      const arrayBuffer = await response.arrayBuffer();
-      audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-      audioLoaded = true;
-    }
-
-    function playAudio(){
-      if(!audioBuffer) return;
-      stopAudio();
-      audioSource = audioCtx.createBufferSource();
-      audioSource.buffer = audioBuffer;
-      audioSource.loop=true;
-      audioSource.connect(audioCtx.destination);
-      audioStartTime = audioCtx.currentTime - audioOffset;
-      audioSource.start(0,audioOffset % audioBuffer.duration);
-      audioToggleBtn.textContent="🔊";
-    }
-
-    function stopAudio(){
-      if(audioSource){
-        try{
-          audioSource.stop();
-          audioOffset=(audioCtx.currentTime-audioStartTime) % audioBuffer.duration;
-        }catch{}
-        audioSource.disconnect(); audioSource=null;
-      }
-      audioToggleBtn.textContent="🔇";
-    }
-
-    function pickRandomIndex(){
-      let idx;
-      do{ idx=Math.floor(Math.random()*TOTAL_VIDEOS); }while(idx===lastIndex);
-      lastIndex=idx;
-      return idx;
-    }
-
-    function preloadVideo(videoEl){
-      const idx = pickRandomIndex();
-      videoEl.src = `./assets/videos/target0_random_${idx}.mp4`;
-      videoEl.currentTime=0;
-      videoEl.load();
-    }
-
-    function swapVideo(){
-      const flip=Math.random()<0.5?-1:1;
-      nextPlane.setAttribute("scale",`${flip} 1 1`);
-      nextPlane.setAttribute("visible",true);
-      activePlane.setAttribute("visible",false);
-      nextVideo.currentTime=0;
-      nextVideo.play();
-      [activeVideo,nextVideo]=[nextVideo,activeVideo];
-      [activePlane,nextPlane]=[nextPlane,activePlane];
-      preloadVideo(nextVideo);
-      loopCount++;
-      if(loopCount>=LOOP_LIMIT) showStillWatching();
-    }
-
-    function monitorVideo(){
-      if(isActive && activeVideo.duration>0 && activeVideo.currentTime>=activeVideo.duration-0.05){
-        swapVideo();
-      }
-      requestAnimationFrame(monitorVideo);
-    }
-
-    function showStillWatching(){
-      isActive=false;
-      activeVideo.pause();
-      nextVideo.pause();
-      stopAudio();
-      audioToggleBtn.style.display="none";
-      stillWatchingContainer.style.display="flex";
-    }
-
-    stillWatchingBtn.addEventListener("click", async ()=>{
-      stillWatchingContainer.style.display="none";
-      loopCount=0;
-      isActive=true;
-      activeVideo.play();
-      activePlane.setAttribute("visible",true);
-      if(userAudioPreference){ await loadAudioOnce(); playAudio(); }
-      audioToggleBtn.style.display="block";
-    });
-
-    async function handleTargetFound(){
-      if(!arButtonPressed) return;
-      isActive=true;
-      activePlane.setAttribute("visible",true);
-      arScene.style.background="#ffffff";
-      if(!activeVideo.src){ preloadVideo(activeVideo); preloadVideo(nextVideo); }
-      activeVideo.play();
-      if(userAudioPreference){ await loadAudioOnce(); playAudio(); }
-      audioToggleBtn.style.display="block";
-    }
-
-    startBtn.addEventListener("click",()=>{
-      startClicked = true;
-      arButtonPressed = true;
-      arStartedOnce = true;
-      whiteOverlay.style.display="none";
-      arScene.style.display="block";
-      monitorVideo();
-      if(targetCurrentlyVisible) handleTargetFound();
-    });
-
-    restartBtn.addEventListener("click",()=>{
-      startClicked = true;
-      arButtonPressed = true;
-      whiteOverlay.style.display="none";
-      arScene.style.display="block";
-      monitorVideo();
-      if(targetCurrentlyVisible) handleTargetFound();
-    });
-
-    audioToggleBtn.addEventListener("click", async ()=>{
-      await loadAudioOnce();
-      if(!audioSource){ playAudio(); userAudioPreference=true; }
-      else{ stopAudio(); userAudioPreference=false; }
-      localStorage.setItem("userAudioPref",userAudioPreference);
-    });
-
-    targetEl.addEventListener("targetFound", ()=>{
-      targetCurrentlyVisible = true;
-      if(arButtonPressed) handleTargetFound();
-    });
-
-    targetEl.addEventListener("targetLost", ()=>{
-      targetCurrentlyVisible=false;
-      isActive=false;
-      activePlane.setAttribute("visible",false);
-      nextPlane.setAttribute("visible",false);
-      arScene.style.background=null;
-      activeVideo.pause();
-      nextVideo.pause();
-      stopAudio();
-      audioToggleBtn.style.display="none";
-    });
-
-    document.addEventListener("visibilitychange", ()=>{
-      if(document.hidden){
-        isActive=false;
-        activeVideo.pause();
-        nextVideo.pause();
-        stopAudio();
-        audioToggleBtn.style.display="none";
-        activePlane.setAttribute("visible",false);
-        nextPlane.setAttribute("visible",false);
-      } else {
-        whiteOverlay.style.display="block";
-        arScene.style.display="none";
-        audioToggleBtn.style.display="none";
-
-        if(arStartedOnce){
-          startBtn.style.display="none";
-          restartBtn.style.display="block";
-          arButtonPressed = false;
-        } else {
-          startBtn.style.display="block";
-          restartBtn.style.display="none";
-        }
-      }
-    });
-
-    [videoA,videoB].forEach(v=>{ v.currentTime=0; v.play(); v.pause(); });
-    preloadVideo(videoA);
-    preloadVideo(videoB);
-    await loadAudioOnce();
-  }
-})();
-</script>
+  </script>
 
 </body>
 </html>
