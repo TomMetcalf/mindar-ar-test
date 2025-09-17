@@ -6,54 +6,42 @@
     <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
-      body { margin:0; font-family:sans-serif; }
+      body { margin: 0; font-family: sans-serif; }
       #whiteOverlay, #inactiveTabMessage {
-        position:fixed; top:0; left:0; width:100%; height:100%;
-        display:flex; align-items:center; justify-content:center;
-        background:white; z-index:10;
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        background: white; z-index: 10;
       }
       #preARMessage {
-        display:flex; flex-direction:column;
-        align-items:center; justify-content:center;
-        height:100%; gap:1em;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        height: 100%; gap: 1em;
       }
-      #startAR, #restartAR { padding:1em 2em; font-size:18px; cursor:pointer; }
-      #restartAR { display:none; }
+      #startAR, #restartAR { padding: 1em 2em; font-size: 18px; cursor: pointer; }
+      #restartAR { display: none; }
       #audioToggle {
-        position:fixed; bottom:5%; right:5%; z-index:20;
-        padding:0.5em 1em; font-size:18px; cursor:pointer; display:none;
+        position: fixed; bottom: 5%; right: 5%; z-index: 20;
+        padding: 0.5em 1em; font-size: 18px; cursor: pointer; display: none;
       }
-      #arScene { display:none; }
+      #arScene { display: none; }
       #stillWatchingContainer {
-        position:fixed; top:0; left:0; width:100%; height:100%;
-        background:white; z-index:50; display:none;
-        align-items:center; justify-content:center;
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: white; z-index: 50; display: none;
+        align-items: center; justify-content: center;
       }
-      #stillWatchingBtn { padding:1em 2em; font-size:18px; cursor:pointer; }
+      #stillWatchingBtn { padding: 1em 2em; font-size: 18px; cursor: pointer; }
       #inactiveTabMessage {
-        display:none; flex-direction:column; align-items:center;
-        justify-content:center; text-align:center; padding:0 1em;
-        box-sizing:border-box;
+        display: none; flex-direction: column; align-items: center;
+        justify-content: center; text-align: center; padding: 0 1em;
+        box-sizing: border-box;
       }
       #inactiveTabInner {
-        max-width:600px; width:100%; display:flex;
-        flex-direction:column; align-items:center; justify-content:center;
+        max-width: 600px; width: 100%; display: flex;
+        flex-direction: column; align-items: center; justify-content: center;
       }
-      #inactiveTabInner p { margin:0.5em 0; font-size:1.2em; word-wrap:break-word; }
-      @media (max-width:480px) { #inactiveTabInner p { font-size:1em; } }
-      @media (max-width:360px) { #inactiveTabInner p { font-size:0.9em; } }
-
-      /* iOS Safari reload overlay */
-      #iosReloadOverlay {
-        display:none;
-        position:fixed; top:0; left:0; width:100%; height:100%;
-        background:rgba(255,255,255,0.95); z-index:1000;
-        display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1em;
-        text-align:center;
-      }
-      #iosReloadOverlay button {
-        padding:1em 2em; font-size:18px; cursor:pointer;
-      }
+      #inactiveTabInner p { margin: 0.5em 0; font-size: 1.2em; word-wrap: break-word; }
+      @media (max-width: 480px) { #inactiveTabInner p { font-size: 1em; } }
+      @media (max-width: 360px) { #inactiveTabInner p { font-size: 0.9em; } }
     </style>
   </head>
 
@@ -116,12 +104,6 @@
       </a-entity>
     </a-scene>
 
-    <!-- iOS Safari reload overlay -->
-    <div id="iosReloadOverlay">
-      <p>Safari requires you to refresh to continue AR</p>
-      <button id="iosReloadBtn">Refresh AR</button>
-    </div>
-
     <script>
       (async () => {
         const AR_FLAG_KEY = "arActive";
@@ -130,7 +112,6 @@
         const TAB_TIMEOUT = 1000;
 
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        const isiSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
         function updateHeartbeat() { localStorage.setItem("tab_" + TAB_ID, Date.now()); }
         function cleanupTabs() {
@@ -158,9 +139,17 @@
           localStorage.removeItem("tab_" + TAB_ID);
         });
 
-        // --- Immediate AR init check ---
+        // iOS: Force reload when switching back to regain camera
+        if (isIOS) {
+          document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) location.reload();
+          });
+        }
+
+        // Immediate AR init check
         (() => {
-          if (isIOS && isiSafari) {
+          if (isIOS) {
+            // Skip tab lock on iOS
             initAR();
             return;
           }
@@ -178,28 +167,8 @@
           else { localStorage.setItem(AR_FLAG_KEY, "true"); initAR(); }
         })();
 
-        // --- iOS Safari reload overlay ---
-        if (isIOS && isiSafari) {
-          const iosOverlay = document.getElementById("iosReloadOverlay");
-          const iosBtn = document.getElementById("iosReloadBtn");
-          let tabWasHidden = false;
-
-          document.addEventListener("visibilitychange", () => {
-            if (document.hidden) {
-              tabWasHidden = true;
-            } else if (tabWasHidden) {
-              iosOverlay.style.display = "flex";
-            }
-          });
-
-          iosBtn.addEventListener("click", () => location.reload());
-        } else {
-          const iosOverlay = document.getElementById("iosReloadOverlay");
-          if (iosOverlay) iosOverlay.style.display = "none";
-        }
-
         // -----------------------
-        // Full AR logic (Android unchanged)
+        // AR logic (unchanged)
         // -----------------------
         async function initAR() {
           const whiteOverlay = document.getElementById("whiteOverlay");
@@ -377,7 +346,7 @@
               audioToggleBtn.style.display = "none";
               activePlane.setAttribute("visible", false);
               nextPlane.setAttribute("visible", false);
-            } else if (!(isIOS && isiSafari)) {
+            } else if (!isIOS) {
               whiteOverlay.style.display = "block";
               arScene.style.display = "none";
               audioToggleBtn.style.display = "none";
@@ -386,7 +355,8 @@
             }
           });
 
-          [videoA, videoB].forEach((v) => { v.currentTime=0; v.play(); v.pause(); });
+          [videoA, videoB].forEach((v) => { v.currentTime = 0; v.play(); v.pause(); });
+
           preloadVideo(videoA);
           preloadVideo(videoB);
           await loadAudioOnce();
