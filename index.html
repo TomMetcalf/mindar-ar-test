@@ -125,15 +125,14 @@
       }
 
       // -----------------------
-      // iOS: no single-tab enforcement
+      // iOS: no single-tab enforcement, with camera recovery
       // -----------------------
       if (isIOS) {
-        // Safari/iOS will naturally prevent multiple tabs from accessing camera
         initAR();
       }
 
       // -----------------------
-      // AR/video/audio/still-watching logic (full original)
+      // AR/video/audio/still-watching logic
       // -----------------------
       async function initAR() {
         const whiteOverlay = document.getElementById("whiteOverlay");
@@ -256,10 +255,10 @@
           if (targetCurrentlyVisible) handleTargetFound();
         });
 
-        restartBtn.addEventListener("click", () => {
+        restartBtn.addEventListener("click", async () => {
           startClicked = true; arButtonPressed = true;
           whiteOverlay.style.display = "none"; arScene.style.display = "block"; monitorVideo();
-          if (targetCurrentlyVisible) handleTargetFound();
+          if (targetCurrentlyVisible) await handleTargetFound();
         });
 
         audioToggleBtn.addEventListener("click", async () => {
@@ -278,16 +277,21 @@
           audioToggleBtn.style.display = "none";
         });
 
-        document.addEventListener("visibilitychange", () => {
+        // iOS visibility change handling to fix black screen
+        document.addEventListener("visibilitychange", async () => {
           if (document.hidden) {
             isActive = false;
             activeVideo.pause(); nextVideo.pause(); stopAudio();
             audioToggleBtn.style.display = "none";
             activePlane.setAttribute("visible", false); nextPlane.setAttribute("visible", false);
-          } else {
-            whiteOverlay.style.display = "block"; arScene.style.display = "none"; audioToggleBtn.style.display = "none";
-            if (arStartedOnce) { startBtn.style.display = "none"; restartBtn.style.display = "block"; arButtonPressed = false; }
-            else { startBtn.style.display = "block"; restartBtn.style.display = "none"; }
+          } else if (isIOS && arStartedOnce) {
+            // Re-initialize MindAR to reacquire camera
+            const mindarComponent = arScene.components['mindar-image'];
+            if (mindarComponent) {
+              await mindarComponent.stop();
+              await mindarComponent.start();
+              arButtonPressed = true;
+            }
           }
         });
 
