@@ -6,96 +6,42 @@
     <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
-      body {
-        margin: 0;
-        font-family: sans-serif;
-      }
+      body { margin: 0; font-family: sans-serif; }
       #whiteOverlay, #inactiveTabMessage {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: white;
-        z-index: 10;
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        background: white; z-index: 10;
       }
       #preARMessage {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        gap: 1em;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        height: 100%; gap: 1em;
       }
-      #startAR, #restartAR {
-        padding: 1em 2em;
-        font-size: 18px;
-        cursor: pointer;
-      }
-      #restartAR {
-        display: none;
-      }
+      #startAR, #restartAR { padding: 1em 2em; font-size: 18px; cursor: pointer; }
+      #restartAR { display: none; }
       #audioToggle {
-        position: fixed;
-        bottom: 5%;
-        right: 5%;
-        z-index: 20;
-        padding: 0.5em 1em;
-        font-size: 18px;
-        cursor: pointer;
-        display: none;
+        position: fixed; bottom: 5%; right: 5%; z-index: 20;
+        padding: 0.5em 1em; font-size: 18px; cursor: pointer; display: none;
       }
-      #arScene {
-        display: none;
-      }
+      #arScene { display: none; }
       #stillWatchingContainer {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: white;
-        z-index: 50;
-        display: none;
-        align-items: center;
-        justify-content: center;
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: white; z-index: 50; display: none;
+        align-items: center; justify-content: center;
       }
-      #stillWatchingBtn {
-        padding: 1em 2em;
-        font-size: 18px;
-        cursor: pointer;
-      }
+      #stillWatchingBtn { padding: 1em 2em; font-size: 18px; cursor: pointer; }
       #inactiveTabMessage {
-        display: none;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 0 1em;
+        display: none; flex-direction: column; align-items: center;
+        justify-content: center; text-align: center; padding: 0 1em;
         box-sizing: border-box;
       }
       #inactiveTabInner {
-        max-width: 600px;
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
+        max-width: 600px; width: 100%; display: flex;
+        flex-direction: column; align-items: center; justify-content: center;
       }
-      #inactiveTabInner p {
-        margin: 0.5em 0;
-        font-size: 1.2em;
-        word-wrap: break-word;
-      }
-      @media (max-width: 480px) {
-        #inactiveTabInner p { font-size: 1em; }
-      }
-      @media (max-width: 360px) {
-        #inactiveTabInner p { font-size: 0.9em; }
-      }
+      #inactiveTabInner p { margin: 0.5em 0; font-size: 1.2em; word-wrap: break-word; }
+      @media (max-width: 480px) { #inactiveTabInner p { font-size: 1em; } }
+      @media (max-width: 360px) { #inactiveTabInner p { font-size: 0.9em; } }
     </style>
   </head>
 
@@ -165,10 +111,9 @@
         const HEARTBEAT_INTERVAL = 1000;
         const TAB_TIMEOUT = 1000;
 
-        function updateHeartbeat() {
-          localStorage.setItem("tab_" + TAB_ID, Date.now());
-        }
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
+        function updateHeartbeat() { localStorage.setItem("tab_" + TAB_ID, Date.now()); }
         function cleanupTabs() {
           const now = Date.now();
           let anyAlive = false;
@@ -181,7 +126,6 @@
           }
           if (!anyAlive) localStorage.removeItem(AR_FLAG_KEY);
         }
-
         function showInactiveMessage() {
           document.getElementById("whiteOverlay").style.display = "none";
           document.getElementById("inactiveTabMessage").style.display = "flex";
@@ -195,8 +139,21 @@
           localStorage.removeItem("tab_" + TAB_ID);
         });
 
-        // --- Immediate check for stale tabs ---
+        // iOS: Force reload when switching back to regain camera
+        if (isIOS) {
+          document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) location.reload();
+          });
+        }
+
+        // Immediate AR init check
         (() => {
+          if (isIOS) {
+            // Skip tab lock on iOS
+            initAR();
+            return;
+          }
+
           cleanupTabs();
           const now = Date.now();
           let anyAlive = false;
@@ -206,23 +163,9 @@
               if (now - last < TAB_TIMEOUT) anyAlive = true;
             }
           }
-          if (anyAlive) {
-            showInactiveMessage();
-          } else {
-            localStorage.setItem(AR_FLAG_KEY, "true");
-            initAR();
-          }
+          if (anyAlive) showInactiveMessage();
+          else { localStorage.setItem(AR_FLAG_KEY, "true"); initAR(); }
         })();
-
-        // --- iOS tab-reload logic ---
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        if (isIOS) {
-          document.addEventListener("visibilitychange", () => {
-            if (!document.hidden) {
-              location.reload();
-            }
-          });
-        }
 
         // -----------------------
         // AR logic (unchanged)
@@ -243,28 +186,22 @@
 
           const TOTAL_VIDEOS = 60;
           let lastIndex = -1,
-            activeVideo = videoA,
-            nextVideo = videoB,
-            activePlane = videoPlaneA,
-            nextPlane = videoPlaneB;
+              activeVideo = videoA,
+              nextVideo = videoB,
+              activePlane = videoPlaneA,
+              nextPlane = videoPlaneB;
           let startClicked = false,
-            arStartedOnce = false,
-            arButtonPressed = false,
-            isActive = false,
-            loopCount = 0,
-            targetCurrentlyVisible = false;
+              arStartedOnce = false,
+              arButtonPressed = false,
+              isActive = false,
+              loopCount = 0,
+              targetCurrentlyVisible = false;
           const LOOP_LIMIT = 3;
 
           let userAudioPreference = localStorage.getItem("userAudioPref");
-          userAudioPreference =
-            userAudioPreference === null ? true : userAudioPreference !== "false";
+          userAudioPreference = userAudioPreference === null ? true : userAudioPreference !== "false";
 
-          let audioCtx,
-            audioBuffer,
-            audioSource,
-            audioLoaded = false,
-            audioStartTime = 0,
-            audioOffset = 0;
+          let audioCtx, audioBuffer, audioSource, audioLoaded = false, audioStartTime = 0, audioOffset = 0;
 
           async function loadAudioOnce() {
             if (audioLoaded) return;
@@ -289,10 +226,7 @@
 
           function stopAudio() {
             if (audioSource) {
-              try {
-                audioSource.stop();
-                audioOffset = (audioCtx.currentTime - audioStartTime) % audioBuffer.duration;
-              } catch {}
+              try { audioSource.stop(); audioOffset = (audioCtx.currentTime - audioStartTime) % audioBuffer.duration; } catch {}
               audioSource.disconnect();
               audioSource = null;
             }
@@ -301,11 +235,8 @@
 
           function pickRandomIndex() {
             let idx;
-            do {
-              idx = Math.floor(Math.random() * TOTAL_VIDEOS);
-            } while (idx === lastIndex);
-            lastIndex = idx;
-            return idx;
+            do { idx = Math.floor(Math.random() * TOTAL_VIDEOS); } while (idx === lastIndex);
+            lastIndex = idx; return idx;
           }
 
           function preloadVideo(videoEl) {
@@ -330,9 +261,7 @@
           }
 
           function monitorVideo() {
-            if (isActive && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration - 0.05) {
-              swapVideo();
-            }
+            if (isActive && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration - 0.05) swapVideo();
             requestAnimationFrame(monitorVideo);
           }
 
@@ -351,10 +280,7 @@
             isActive = true;
             activeVideo.play();
             activePlane.setAttribute("visible", true);
-            if (userAudioPreference) {
-              await loadAudioOnce();
-              playAudio();
-            }
+            if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
             audioToggleBtn.style.display = "block";
           });
 
@@ -363,15 +289,9 @@
             isActive = true;
             activePlane.setAttribute("visible", true);
             arScene.style.background = "#ffffff";
-            if (!activeVideo.src) {
-              preloadVideo(activeVideo);
-              preloadVideo(nextVideo);
-            }
+            if (!activeVideo.src) { preloadVideo(activeVideo); preloadVideo(nextVideo); }
             activeVideo.play();
-            if (userAudioPreference) {
-              await loadAudioOnce();
-              playAudio();
-            }
+            if (userAudioPreference) { await loadAudioOnce(); playAudio(); }
             audioToggleBtn.style.display = "block";
           }
 
@@ -396,13 +316,7 @@
 
           audioToggleBtn.addEventListener("click", async () => {
             await loadAudioOnce();
-            if (!audioSource) {
-              playAudio();
-              userAudioPreference = true;
-            } else {
-              stopAudio();
-              userAudioPreference = false;
-            }
+            if (!audioSource) { playAudio(); userAudioPreference = true; } else { stopAudio(); userAudioPreference = false; }
             localStorage.setItem("userAudioPref", userAudioPreference);
           });
 
@@ -432,26 +346,16 @@
               audioToggleBtn.style.display = "none";
               activePlane.setAttribute("visible", false);
               nextPlane.setAttribute("visible", false);
-            } else {
+            } else if (!isIOS) {
               whiteOverlay.style.display = "block";
               arScene.style.display = "none";
               audioToggleBtn.style.display = "none";
-              if (arStartedOnce) {
-                startBtn.style.display = "none";
-                restartBtn.style.display = "block";
-                arButtonPressed = false;
-              } else {
-                startBtn.style.display = "block";
-                restartBtn.style.display = "none";
-              }
+              if (arStartedOnce) { startBtn.style.display = "none"; restartBtn.style.display = "block"; arButtonPressed = false; } 
+              else { startBtn.style.display = "block"; restartBtn.style.display = "none"; }
             }
           });
 
-          [videoA, videoB].forEach((v) => {
-            v.currentTime = 0;
-            v.play();
-            v.pause();
-          });
+          [videoA, videoB].forEach((v) => { v.currentTime = 0; v.play(); v.pause(); });
 
           preloadVideo(videoA);
           preloadVideo(videoB);
