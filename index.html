@@ -162,7 +162,7 @@
       const isAndroid = /Android/.test(navigator.userAgent);
 
       // -----------------------
-      // Android heartbeat logic (unchanged)
+      // Android heartbeat logic
       // -----------------------
       if (isAndroid) {
         const AR_FLAG_KEY = "arActive";
@@ -212,49 +212,53 @@
       }
 
       // -----------------------
-      // iOS single-tab logic via BroadcastChannel
+      // iOS single-tab logic (heartbeat same as Android, longer timeout)
       // -----------------------
       if (isIOS) {
-        const CHANNEL_NAME = "arTabChannel";
-        const bc = new BroadcastChannel(CHANNEL_NAME);
-        let arActive = false;
-        let otherTabActive = false;
+        const AR_FLAG_KEY = "arActive";
+        const TAB_ID = Date.now() + '-' + Math.random();
+        const HEARTBEAT_INTERVAL = 1000;
+        const TAB_TIMEOUT = 2000; // longer for Safari suspensions
+
+        function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
+        function cleanupTabs() {
+          const now = Date.now();
+          let anyAlive = false;
+          for (let key in localStorage) {
+            if (key.startsWith('tab_')) {
+              const last = parseInt(localStorage.getItem(key), 10);
+              if (now - last < TAB_TIMEOUT) anyAlive = true;
+              else localStorage.removeItem(key);
+            }
+          }
+          if (!anyAlive) localStorage.removeItem(AR_FLAG_KEY);
+        }
 
         function showInactiveMessage() {
           document.getElementById("whiteOverlay").style.display = "none";
           document.getElementById("inactiveTabMessage").style.display = "flex";
         }
 
-        bc.onmessage = (event) => {
-          if (event.data.type === "AR_STARTED") {
-            otherTabActive = true;
-            if (!arActive) showInactiveMessage();
-          } else if (event.data.type === "AR_STOPPED") {
-            otherTabActive = false;
+        updateHeartbeat();
+        setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
+        setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
+
+        window.addEventListener('beforeunload', () => { localStorage.removeItem('tab_' + TAB_ID); });
+
+        // Immediate stale tab check
+        (() => {
+          cleanupTabs();
+          const now = Date.now();
+          let anyAlive = false;
+          for (let key in localStorage) {
+            if (key.startsWith('tab_') && key !== 'tab_' + TAB_ID) {
+              const last = parseInt(localStorage.getItem(key), 10);
+              if (now - last < TAB_TIMEOUT) anyAlive = true;
+            }
           }
-        };
-
-        const startBtn = document.getElementById("startAR");
-        const restartBtn = document.getElementById("restartAR");
-
-        startBtn.addEventListener("click", () => {
-          if (otherTabActive) { showInactiveMessage(); return; }
-          arActive = true;
-          bc.postMessage({ type: "AR_STARTED" });
-          initAR();
-        });
-
-        restartBtn.addEventListener("click", () => {
-          if (otherTabActive) { showInactiveMessage(); return; }
-          arActive = true;
-          bc.postMessage({ type: "AR_STARTED" });
-          initAR();
-        });
-
-        window.addEventListener("beforeunload", () => { if (arActive) bc.postMessage({ type: "AR_STOPPED" }); });
-        document.addEventListener("visibilitychange", () => {
-          if (document.hidden && arActive) { bc.postMessage({ type: "AR_STOPPED" }); arActive = false; }
-        });
+          if (anyAlive) showInactiveMessage();
+          else { localStorage.setItem(AR_FLAG_KEY, "true"); initAR(); }
+        })();
       }
 
       // -----------------------
