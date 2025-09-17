@@ -161,7 +161,6 @@
         // --- Immediate AR init check ---
         (() => {
           if (isIOS && isiSafari) {
-            // iOS Safari: skip tab lock, init AR directly
             initAR();
             return;
           }
@@ -179,20 +178,28 @@
           else { localStorage.setItem(AR_FLAG_KEY, "true"); initAR(); }
         })();
 
-        // --- iOS Safari reload overlay logic ---
+        // --- iOS Safari reload overlay ---
         if (isIOS && isiSafari) {
           const iosOverlay = document.getElementById("iosReloadOverlay");
           const iosBtn = document.getElementById("iosReloadBtn");
+          let tabWasHidden = false;
 
           document.addEventListener("visibilitychange", () => {
-            if (!document.hidden) iosOverlay.style.display = "flex";
+            if (document.hidden) {
+              tabWasHidden = true;
+            } else if (tabWasHidden) {
+              iosOverlay.style.display = "flex";
+            }
           });
 
           iosBtn.addEventListener("click", () => location.reload());
+        } else {
+          const iosOverlay = document.getElementById("iosReloadOverlay");
+          if (iosOverlay) iosOverlay.style.display = "none";
         }
 
         // -----------------------
-        // AR logic (unchanged)
+        // Full AR logic (Android unchanged)
         // -----------------------
         async function initAR() {
           const whiteOverlay = document.getElementById("whiteOverlay");
@@ -371,7 +378,6 @@
               activePlane.setAttribute("visible", false);
               nextPlane.setAttribute("visible", false);
             } else if (!(isIOS && isiSafari)) {
-              // Android / other browsers behavior
               whiteOverlay.style.display = "block";
               arScene.style.display = "none";
               audioToggleBtn.style.display = "none";
