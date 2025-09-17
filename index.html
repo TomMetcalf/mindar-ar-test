@@ -195,7 +195,6 @@
 
         window.addEventListener('beforeunload', () => { localStorage.removeItem('tab_' + TAB_ID); });
 
-        // Immediate stale tab check
         (() => {
           cleanupTabs();
           const now = Date.now();
@@ -218,7 +217,7 @@
         const AR_FLAG_KEY = "arActive";
         const TAB_ID = Date.now() + '-' + Math.random();
         const HEARTBEAT_INTERVAL = 1000;
-        const TAB_TIMEOUT = 2500; // looser for Safari backgrounding
+        const TAB_TIMEOUT = 2500; // Safari backgrounding buffer
 
         function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
         function cleanupTabs() {
@@ -253,8 +252,18 @@
         document.addEventListener("visibilitychange", () => { if (document.hidden) stopHeartbeat(); else startHeartbeat(); });
 
         (() => {
-          const alive = cleanupTabs();
-          const othersAlive = alive.some(k => k !== 'tab_' + TAB_ID);
+          cleanupTabs();
+          updateHeartbeat();
+
+          const now = Date.now();
+          let othersAlive = false;
+          for (let key in localStorage) {
+            if (key.startsWith('tab_') && key !== 'tab_' + TAB_ID) {
+              const last = parseInt(localStorage.getItem(key), 10);
+              if (now - last < TAB_TIMEOUT) othersAlive = true;
+            }
+          }
+
           if (othersAlive) showInactiveMessage();
           else { localStorage.setItem(AR_FLAG_KEY, "true"); startHeartbeat(); initAR(); }
         })();
