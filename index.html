@@ -162,7 +162,7 @@
       const isAndroid = /Android/.test(navigator.userAgent);
 
       // -----------------------
-      // Android heartbeat logic
+      // Android heartbeat logic (unchanged)
       // -----------------------
       if (isAndroid) {
         const AR_FLAG_KEY = "arActive";
@@ -212,26 +212,27 @@
       }
 
       // -----------------------
-      // iOS single-tab logic (heartbeat same as Android, longer timeout)
+      // iOS single-tab logic via heartbeat (replaces BroadcastChannel)
       // -----------------------
       if (isIOS) {
         const AR_FLAG_KEY = "arActive";
         const TAB_ID = Date.now() + '-' + Math.random();
         const HEARTBEAT_INTERVAL = 1000;
-        const TAB_TIMEOUT = 2000; // longer for Safari suspensions
+        const TAB_TIMEOUT = 2500; // looser for Safari backgrounding
 
         function updateHeartbeat() { localStorage.setItem('tab_' + TAB_ID, Date.now()); }
         function cleanupTabs() {
           const now = Date.now();
-          let anyAlive = false;
+          let aliveTabs = [];
           for (let key in localStorage) {
             if (key.startsWith('tab_')) {
               const last = parseInt(localStorage.getItem(key), 10);
-              if (now - last < TAB_TIMEOUT) anyAlive = true;
+              if (now - last < TAB_TIMEOUT) aliveTabs.push(key);
               else localStorage.removeItem(key);
             }
           }
-          if (!anyAlive) localStorage.removeItem(AR_FLAG_KEY);
+          if (aliveTabs.length === 0) localStorage.removeItem(AR_FLAG_KEY);
+          return aliveTabs;
         }
 
         function showInactiveMessage() {
@@ -239,30 +240,28 @@
           document.getElementById("inactiveTabMessage").style.display = "flex";
         }
 
-        updateHeartbeat();
-        setInterval(updateHeartbeat, HEARTBEAT_INTERVAL);
-        setInterval(cleanupTabs, HEARTBEAT_INTERVAL);
+        let heartbeatTimer = null;
+        function startHeartbeat() {
+          if (!heartbeatTimer) {
+            updateHeartbeat();
+            heartbeatTimer = setInterval(() => { updateHeartbeat(); cleanupTabs(); }, HEARTBEAT_INTERVAL);
+          }
+        }
+        function stopHeartbeat() { if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; } }
 
         window.addEventListener('beforeunload', () => { localStorage.removeItem('tab_' + TAB_ID); });
+        document.addEventListener("visibilitychange", () => { if (document.hidden) stopHeartbeat(); else startHeartbeat(); });
 
-        // Immediate stale tab check
         (() => {
-          cleanupTabs();
-          const now = Date.now();
-          let anyAlive = false;
-          for (let key in localStorage) {
-            if (key.startsWith('tab_') && key !== 'tab_' + TAB_ID) {
-              const last = parseInt(localStorage.getItem(key), 10);
-              if (now - last < TAB_TIMEOUT) anyAlive = true;
-            }
-          }
-          if (anyAlive) showInactiveMessage();
-          else { localStorage.setItem(AR_FLAG_KEY, "true"); initAR(); }
+          const alive = cleanupTabs();
+          const othersAlive = alive.some(k => k !== 'tab_' + TAB_ID);
+          if (othersAlive) showInactiveMessage();
+          else { localStorage.setItem(AR_FLAG_KEY, "true"); startHeartbeat(); initAR(); }
         })();
       }
 
       // -----------------------
-      // AR logic (shared)
+      // AR logic (shared, unchanged from your original)
       // -----------------------
       async function initAR() {
         const whiteOverlay = document.getElementById("whiteOverlay");
