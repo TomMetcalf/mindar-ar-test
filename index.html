@@ -10,9 +10,7 @@
         margin: 0;
         font-family: sans-serif;
       }
-
-      #whiteOverlay,
-      #inactiveTabMessage {
+      #whiteOverlay, #inactiveTabMessage {
         position: fixed;
         top: 0;
         left: 0;
@@ -24,7 +22,6 @@
         background: white;
         z-index: 10;
       }
-
       #preARMessage {
         display: flex;
         flex-direction: column;
@@ -33,18 +30,14 @@
         height: 100%;
         gap: 1em;
       }
-
-      #startAR,
-      #restartAR {
+      #startAR, #restartAR {
         padding: 1em 2em;
         font-size: 18px;
         cursor: pointer;
       }
-
       #restartAR {
         display: none;
       }
-
       #audioToggle {
         position: fixed;
         bottom: 5%;
@@ -55,11 +48,9 @@
         cursor: pointer;
         display: none;
       }
-
       #arScene {
         display: none;
       }
-
       #stillWatchingContainer {
         position: fixed;
         top: 0;
@@ -72,13 +63,11 @@
         align-items: center;
         justify-content: center;
       }
-
       #stillWatchingBtn {
         padding: 1em 2em;
         font-size: 18px;
         cursor: pointer;
       }
-
       #inactiveTabMessage {
         display: none;
         flex-direction: column;
@@ -88,7 +77,6 @@
         padding: 0 1em;
         box-sizing: border-box;
       }
-
       #inactiveTabInner {
         max-width: 600px;
         width: 100%;
@@ -97,23 +85,16 @@
         align-items: center;
         justify-content: center;
       }
-
       #inactiveTabInner p {
         margin: 0.5em 0;
         font-size: 1.2em;
         word-wrap: break-word;
       }
-
       @media (max-width: 480px) {
-        #inactiveTabInner p {
-          font-size: 1em;
-        }
+        #inactiveTabInner p { font-size: 1em; }
       }
-
       @media (max-width: 360px) {
-        #inactiveTabInner p {
-          font-size: 0.9em;
-        }
+        #inactiveTabInner p { font-size: 0.9em; }
       }
     </style>
   </head>
@@ -233,8 +214,18 @@
           }
         })();
 
+        // --- iOS tab-reload logic ---
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIOS) {
+          document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) {
+              location.reload();
+            }
+          });
+        }
+
         // -----------------------
-        // AR logic
+        // AR logic (unchanged)
         // -----------------------
         async function initAR() {
           const whiteOverlay = document.getElementById("whiteOverlay");
