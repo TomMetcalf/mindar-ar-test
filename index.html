@@ -142,6 +142,13 @@
     <video id="videoA" style="display:none" muted playsinline></video>
     <video id="videoB" style="display:none" muted playsinline></video>
 
+    <!-- Fullscreen overlay video -->
+    <video 
+      id="overlayVideo" 
+      playsinline 
+      style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:100; background:black;">
+    </video>
+
     <a-scene
       id="arScene"
       mindar-image="imageTargetSrc: ./assets/targets/targets.mind; smooth:true; smoothCount:5; smoothTolerance:0.1"
@@ -149,7 +156,6 @@
       renderer="colorManagement:true, physicallyCorrectLights"
       vr-mode-ui="enabled:false"
       device-orientation-permission-ui="enabled:false"
-      framerate="12"
       look-at="[camera]"
     >
       <a-camera id="camera" position="0 0 0" look-controls="enabled:false"></a-camera>
@@ -179,6 +185,8 @@
 
     <script>
       (async () => {
+        const USE_FULLSCREEN_MODE = true; // toggle here
+
         const AR_FLAG_KEY = "arActive";
         const TAB_ID = Date.now() + "-" + Math.random();
         const HEARTBEAT_INTERVAL = 1000;
@@ -214,7 +222,6 @@
           localStorage.removeItem("tab_" + TAB_ID);
         });
 
-        // --- Immediate check for stale tabs ---
         (() => {
           cleanupTabs();
           const now = Date.now();
@@ -243,6 +250,7 @@
           const audioToggleBtn = document.getElementById("audioToggle");
           const videoA = document.getElementById("videoA");
           const videoB = document.getElementById("videoB");
+          const overlayVideo = document.getElementById("overlayVideo");
           const videoPlaneA = document.getElementById("videoPlaneA");
           const videoPlaneB = document.getElementById("videoPlaneB");
           const targetEl = document.getElementById("target0");
@@ -326,20 +334,33 @@
 
           function swapVideo() {
             const flip = Math.random() < 0.5 ? -1 : 1;
-            nextPlane.setAttribute("scale", `${flip} 1 1`);
-            nextPlane.setAttribute("visible", true);
-            activePlane.setAttribute("visible", false);
-            nextVideo.currentTime = 0;
-            nextVideo.play();
+
+            if (USE_FULLSCREEN_MODE) {
+              overlayVideo.src = nextVideo.src;
+              overlayVideo.currentTime = 0;
+              overlayVideo.play();
+            } else {
+              nextPlane.setAttribute("scale", `${flip} 1 1`);
+              nextPlane.setAttribute("visible", true);
+              activePlane.setAttribute("visible", false);
+              nextVideo.currentTime = 0;
+              nextVideo.play();
+            }
+
             [activeVideo, nextVideo] = [nextVideo, activeVideo];
             [activePlane, nextPlane] = [nextPlane, activePlane];
             preloadVideo(nextVideo);
+
             loopCount++;
             if (loopCount >= LOOP_LIMIT) showStillWatching();
           }
 
           function monitorVideo() {
-            if (isActive && activeVideo.duration > 0 && activeVideo.currentTime >= activeVideo.duration - 0.05) {
+            if (
+              isActive &&
+              activeVideo.duration > 0 &&
+              activeVideo.currentTime >= activeVideo.duration - 0.05
+            ) {
               swapVideo();
             }
             requestAnimationFrame(monitorVideo);
@@ -358,8 +379,12 @@
             stillWatchingContainer.style.display = "none";
             loopCount = 0;
             isActive = true;
-            activeVideo.play();
-            activePlane.setAttribute("visible", true);
+            if (USE_FULLSCREEN_MODE) {
+              overlayVideo.play();
+            } else {
+              activeVideo.play();
+              activePlane.setAttribute("visible", true);
+            }
             if (userAudioPreference) {
               await loadAudioOnce();
               playAudio();
@@ -370,13 +395,25 @@
           async function handleTargetFound() {
             if (!arButtonPressed) return;
             isActive = true;
-            activePlane.setAttribute("visible", true);
-            arScene.style.background = "#ffffff";
-            if (!activeVideo.src) {
-              preloadVideo(activeVideo);
-              preloadVideo(nextVideo);
+
+            if (USE_FULLSCREEN_MODE) {
+              if (!activeVideo.src) {
+                preloadVideo(activeVideo);
+                preloadVideo(nextVideo);
+              }
+              overlayVideo.src = activeVideo.src;
+              overlayVideo.style.display = "block";
+              await overlayVideo.play();
+            } else {
+              activePlane.setAttribute("visible", true);
+              arScene.style.background = "#ffffff";
+              if (!activeVideo.src) {
+                preloadVideo(activeVideo);
+                preloadVideo(nextVideo);
+              }
+              activeVideo.play();
             }
-            activeVideo.play();
+
             if (userAudioPreference) {
               await loadAudioOnce();
               playAudio();
@@ -423,11 +460,18 @@
           targetEl.addEventListener("targetLost", () => {
             targetCurrentlyVisible = false;
             isActive = false;
-            activePlane.setAttribute("visible", false);
-            nextPlane.setAttribute("visible", false);
-            arScene.style.background = null;
-            activeVideo.pause();
-            nextVideo.pause();
+
+            if (USE_FULLSCREEN_MODE) {
+              overlayVideo.pause();
+              overlayVideo.style.display = "none";
+            } else {
+              activePlane.setAttribute("visible", false);
+              nextPlane.setAttribute("visible", false);
+              arScene.style.background = null;
+              activeVideo.pause();
+              nextVideo.pause();
+            }
+
             stopAudio();
             audioToggleBtn.style.display = "none";
           });
@@ -441,6 +485,8 @@
               audioToggleBtn.style.display = "none";
               activePlane.setAttribute("visible", false);
               nextPlane.setAttribute("visible", false);
+              overlayVideo.pause();
+              overlayVideo.style.display = "none";
             } else {
               whiteOverlay.style.display = "block";
               arScene.style.display = "none";
